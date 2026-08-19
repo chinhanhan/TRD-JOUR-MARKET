@@ -373,7 +373,7 @@
       const user = this.getUser();
       const email = user ? user.email : 'Guest';
       const msg = encodeURIComponent(`Hi TRD Journey, I have transferred RM19 via Touch 'n Go / DuitNow to activate PRO.\nAccount Email: ${email}`);
-      window.open(`https://wa.me/60127790020?text=${msg}`, '_blank');
+      window.open(`https://wa.me/601126633131?text=${msg}`, '_blank');
     },
 
     togglePasswordVisibility() {

@@ -3930,8 +3930,6 @@ window.openSheet = openSheet;
 window.closeSheet = closeSheet;
 window.openModal = openModal;
 window.closeModal = closeModal;
-window.openRedNewsModal = openRedNewsModal;
-window.closeRedNewsModal = closeRedNewsModal;
 window.clearPastNews = function() {};
 
 window.triggerBentoAction = function(actionStr, moduleName) {

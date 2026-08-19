@@ -178,21 +178,39 @@
           };
           await userDocRef.set(initialProfile, { merge: true });
           AuthState.profile = initialProfile;
-          AuthState.subscription = initialProfile.subscription;
+          AuthState.subscription = initialProfile.subscription || { plan: 'free', limit: 20 };
+
+          // 30-Day Auto-Expiration Check for Pro Subscriptions (Stripe & TNG)
+          if (AuthState.subscription.plan === 'pro' && AuthState.subscription.validUntil) {
+            const expiryTime = new Date(AuthState.subscription.validUntil).getTime();
+            if (Date.now() > expiryTime) {
+              console.log("⏰ [TRD Auth] Pro subscription has expired after 30 days. Auto-locking to Free tier.");
+              AuthState.subscription.plan = 'free';
+              AuthState.subscription.status = 'expired';
+              AuthState.subscription.limit = 20;
+
+              await userDocRef.set({
+                subscription: AuthState.subscription
+              }, { merge: true });
+            }
+          }
         }
 
-        // Activate Pro if returning from Stripe checkout
+        // Activate Pro if returning from Stripe checkout (30-day recurring period)
         if (isPaymentSuccess && AuthState.subscription.plan !== 'pro') {
+          const now = new Date();
+          const validUntil = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
           AuthState.subscription = {
             plan: 'pro',
             status: 'active',
             limit: 999999,
-            subscribedAt: new Date().toISOString(),
+            subscribedAt: now.toISOString(),
+            validUntil: validUntil,
             provider: 'stripe'
           };
           await userDocRef.set({ subscription: AuthState.subscription }, { merge: true });
           alert("🎉 Congratulations! Your TRD Journey Early Bird Pro subscription is now ACTIVE!");
-          // Clean up url parameter
           window.history.replaceState({}, document.title, window.location.pathname);
         }
       } catch (err) {
@@ -412,11 +430,15 @@
         feedbackEl.style.color = '#0a84ff';
         feedbackEl.textContent = 'Verifying key & upgrading...';
 
+        const now = new Date();
+        const validUntil = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
         AuthState.subscription = {
           plan: 'pro',
           status: 'active',
           limit: 999999,
-          subscribedAt: new Date().toISOString(),
+          subscribedAt: now.toISOString(),
+          validUntil: validUntil,
           provider: 'redeem_code',
           redeemKey: enteredKey
         };

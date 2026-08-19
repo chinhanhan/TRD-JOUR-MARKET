@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>TRD Debug Inspector</title>
+<style>
+  body { font-family: monospace; padding: 20px; background: #111; color: #eee; }
+  .ok { color: #4ade80; margin: 4px 0; }
+  .warn { color: #facc15; margin: 4px 0; }
+  .err { color: #f87171; margin: 4px 0; font-weight: bold; }
+  h2 { color: #60a5fa; }
+  button { background: #2563eb; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; margin: 4px; }
+  iframe { width: 100%; height: 600px; border: 2px solid #333; border-radius: 8px; margin-top: 20px; }
+</style>
+</head>
+<body>
+<h2>🔬 TRD Journey – Live Debug Inspector</h2>
+<div id="results"></div>
+<button onclick="runChecks()">▶ Run Checks</button>
+<button onclick="clearSW()">🗑 Clear Service Worker Cache</button>
+<button onclick="document.getElementById('appFrame').src = document.getElementById('appFrame').src">↺ Reload App</button>
+
+<iframe id="appFrame" src="http://localhost:8787" onload="checkIframe()"></iframe>
+
+<script>
+const log = (msg, type='ok') => {
+  const d = document.createElement('div');
+  d.className = type;
+  d.textContent = (type === 'err' ? '❌ ' : type === 'warn' ? '⚠️ ' : '✅ ') + msg;
+  document.getElementById('results').appendChild(d);
+};
+
+function checkIframe() {
+  try {
+    const doc = document.getElementById('appFrame').contentDocument;
+    if (!doc) { log('Cannot access iframe (cross-origin?)', 'warn'); return; }
+    
+    const views = doc.querySelectorAll('.view');
+    const activeViews = doc.querySelectorAll('.view.active');
+    const dock = doc.querySelectorAll('.dock-item');
+    const header = doc.querySelector('.app-header');
+    const main = doc.querySelector('.main');
+    
+    log(`Views in DOM: ${views.length} (expect 4)`);
+    log(`Active views: ${activeViews.length} (expect 1)`);
+    log(`Dock items: ${dock.length} (expect 4)`);
+    log(`App header: ${!!header}`, header ? 'ok' : 'err');
+    
+    if (activeViews.length === 1) {
+      const style = doc.defaultView.getComputedStyle(activeViews[0]);
+      log(`Active view display: ${style.display} (expect grid)`, style.display === 'grid' ? 'ok' : 'err');
+    }
+    
+    if (views.length > 1) {
+      // Check a non-active view
+      const nonActive = [...views].find(v => !v.classList.contains('active'));
+      if (nonActive) {
+        const style = doc.defaultView.getComputedStyle(nonActive);
+        log(`Inactive view display: ${style.display} (expect none)`, style.display === 'none' ? 'ok' : 'warn');
+      }
+    }
+    
+    const css = doc.querySelector('link[rel=stylesheet]');
+    log(`CSS loaded: ${css?.href || 'none'}`);
+    
+  } catch(e) {
+    log('Error: ' + e.message, 'err');
+  }
+}
+
+function runChecks() {
+  document.getElementById('results').innerHTML = '';
+  checkIframe();
+}
+
+async function clearSW() {
+  const keys = await caches.keys();
+  for (const key of keys) {
+    await caches.delete(key);
+    log(`Deleted cache: ${key}`, 'warn');
+  }
+  
+  const regs = await navigator.serviceWorker.getRegistrations();
+  for (const reg of regs) {
+    await reg.unregister();
+    log(`Unregistered SW: ${reg.scope}`, 'warn');
+  }
+  
+  log('Done! Reloading app...', 'ok');
+  setTimeout(() => {
+    document.getElementById('appFrame').src = document.getElementById('appFrame').src;
+  }, 500);
+}
+</script>
+</body>
+</html>

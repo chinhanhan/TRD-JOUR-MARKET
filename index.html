@@ -1,0 +1,1767 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TRD Journey</title>
+    <link rel="manifest" href="manifest.json" />
+    <link rel="stylesheet" href="styles.css?v=v124" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body>
+    <div class="app-shell" id="appShell">
+      <header class="app-header">
+        <div class="brand" onclick="window.openModule('landing-gallery')" style="cursor: pointer;" title="Return to Launchpad">
+          <div class="brand-mark">T</div>
+          <div>
+            <p>TRD Journey <span id="syncStatusDot" class="status-dot online" title="Online"></span></p>
+            <span>Trading Operating System</span>
+          </div>
+        </div>
+        <div class="header-status">
+          <strong id="guardrailText">Max daily loss: -2R</strong>
+          <span id="guardrailMeta">Max trades: 3</span>
+        </div>
+        <div class="header-actions">
+          <button class="theme-toggle-btn" id="headerThemeToggleBtn" type="button" aria-label="Switch theme">
+            <svg class="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="5"></circle>
+              <line x1="12" y1="1" x2="12" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="23"></line>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+              <line x1="1" y1="12" x2="3" y2="12"></line>
+              <line x1="21" y1="12" x2="23" y2="12"></line>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+            </svg>
+            <svg class="theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+          <button class="ghost-button news-trigger-btn" id="headerNewsBtn" type="button" title="ForexFactory Red Calendar">
+            🔴 Red News
+          </button>
+          <button class="primary-button module-action pill-button" id="headerLogTradeBtn" type="button">
+            <span class="label-stack">
+              <span class="pill-label">Log Trade</span>
+              <span class="pill-label-hover" aria-hidden="true">Log Trade</span>
+            </span>
+          </button>
+          <button class="language-toggle" type="button" aria-label="Switch language">中文</button>
+        </div>
+      </header>
+
+      <!-- ForexFactory High Impact Top News Bar -->
+      <div class="news-bar-banner" id="globalNewsBar">
+        <div class="news-bar-content" id="newsBarContent">
+          <span class="news-bar-badge">🔴 High Impact</span>
+          <span class="news-bar-countdown" id="newsBarCountdown">Loading ForexFactory Red Folder...</span>
+        </div>
+        <button class="news-bar-action" id="newsBarViewBtn" type="button">View Calendar</button>
+      </div>
+
+      <main class="main">
+          <section class="view active" id="landing-gallery">
+            <!-- LaserFlow Ambient Background & Interactive Mouse Reveal Mask -->
+            <div class="laser-flow-bg-wrapper" id="laserFlowBgWrapper">
+              <canvas class="laser-flow-canvas" id="laserFlowCanvas"></canvas>
+              <div class="laser-flow-reveal-layer" id="laserFlowRevealLayer"></div>
+              <div class="laser-flow-dark-overlay"></div>
+            </div>
+
+            <!-- Top Dynamic Island Hub -->
+            <div class="dynamic-island-hub" id="dynamicIslandHub">
+              <div class="island-pill guardrail-pill" title="Max Daily Loss Guardrail">
+                <span class="pill-dot warning"></span>
+                <span class="pill-text" id="islandGuardrail">Max Loss: -2R</span>
+              </div>
+              <div class="island-divider"></div>
+              <div class="island-pill streak-pill" title="Discipline Streak">
+                <span class="streak-fire">🔥</span>
+                <span class="pill-text" id="islandStreak">5 Trades</span>
+              </div>
+              <div class="island-divider"></div>
+              <button class="island-action-btn pill-button" type="button" onclick="window.triggerBentoAction('open-capture')" title="Log Trade">
+                <span class="label-stack">
+                  <span class="pill-label">+ Log Trade</span>
+                  <span class="pill-label-hover" aria-hidden="true">+ Log Trade</span>
+                </span>
+              </button>
+            </div>
+
+            <!-- visionOS 2.0 Spatial Liquid Glass Bento Grid -->
+            <div class="visionos-bento-container" id="css3d-carousel-container">
+              <div class="visionos-bento-grid" id="css3d-carousel">
+                
+                <!-- Bento Card 1: Today (2 columns) -->
+                <div class="css3d-card bento-card bento-wide" data-module="overview" onclick="window.openModule('overview')">
+                  <div class="card-inner">
+                    <div class="card-glare"></div>
+                    <div class="card-front">
+                      <div class="bento-badge-row">
+                        <span class="bento-date-tag">JUL 20</span>
+                        <span class="bento-status-chip success">Plan Ready ✓</span>
+                      </div>
+                      <div class="card-icon">📅</div>
+                      <div class="card-text">Today</div>
+                      <p class="bento-subtext">Pre-market plan & daily close-out review</p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Bento Card 2: Journal (Square) -->
+                <div class="css3d-card bento-card" data-module="journal" onclick="window.openModule('journal')">
+                  <div class="card-inner">
+                    <div class="card-glare"></div>
+                    <div class="card-front">
+                      <div class="bento-badge-row">
+                        <span class="bento-chip">SOP Trail</span>
+                      </div>
+                      <div class="card-icon">✍️</div>
+                      <div class="card-text">Journal</div>
+                      <p class="bento-subtext">Log execution & accounts</p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Bento Card 3: Missions (Square) -->
+                <div class="css3d-card bento-card" data-module="missions" onclick="window.openModule('missions')">
+                  <div class="card-inner">
+                    <div class="card-glare"></div>
+                    <div class="card-front">
+                      <div class="bento-badge-row">
+                        <span class="bento-chip fire">🔥 5 Streak</span>
+                      </div>
+                      <div class="card-icon">🎯</div>
+                      <div class="card-text">Missions</div>
+                      <p class="bento-subtext">Quests & Epic Rewards</p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Bento Card 4: Review (2 columns with live mini SVG sparkline!) -->
+                <div class="css3d-card bento-card bento-wide" data-module="review" onclick="window.openModule('review')">
+                  <div class="card-inner">
+                    <div class="card-glare"></div>
+                    <div class="card-front">
+                      <div class="bento-badge-row">
+                        <span class="bento-chip blue">Analytics</span>
+                        <span class="bento-stat-preview" id="bentoEquityStat">+4.90R Equity</span>
+                      </div>
+                      <div class="bento-sparkline-box">
+                        <svg class="mini-sparkline" viewBox="0 0 200 40">
+                          <path id="bentoSparklinePath" d="M0,35 Q30,28 60,32 T120,15 T180,8 L200,5" fill="none" stroke="var(--blue)" stroke-width="2.5" stroke-linecap="round"></path>
+                        </svg>
+                      </div>
+                      <div class="bento-footer-row">
+                        <div>
+                          <div class="card-icon mini">📊</div>
+                          <div class="card-text inline">Review</div>
+                        </div>
+                        <span class="bento-arrow-hint">Explore Insights ↗</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Bento Card 5: System (Square) -->
+                <div class="css3d-card bento-card" data-module="settings" onclick="window.openModule('settings')">
+                  <div class="card-inner">
+                    <div class="card-glare"></div>
+                    <div class="card-front">
+                      <div class="bento-badge-row">
+                        <span class="bento-status-chip online">Online • Auto-Backup</span>
+                      </div>
+                      <div class="card-icon">⚙️</div>
+                      <div class="card-text">System</div>
+                      <p class="bento-subtext">Preferences & Data</p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Bento Card 6: Long Game (Square) -->
+                <div class="css3d-card bento-card" data-module="long-game" onclick="window.openModule('long-game')">
+                  <div class="card-inner">
+                    <div class="card-glare"></div>
+                    <div class="card-front">
+                      <div class="bento-badge-row">
+                        <span class="bento-status-chip offline" style="background:var(--hairline-strong);color:var(--muted);border-color:var(--hairline-strong)">Evidence</span>
+                      </div>
+                      <div class="card-icon">⛰️</div>
+                      <div class="card-text">The Long Game</div>
+                      <p class="bento-subtext">Behavioral Timeline</p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Today's High-Impact Red Folder News Widget -->
+                <div class="bento-news-card" id="homeRedNewsWidget">
+                  <div class="bento-news-header">
+                    <div>
+                      <span class="bento-news-badge">🔴 High Impact</span>
+                      <h3 style="margin-top:4px;">Today's Red Folder News (今日红盒快讯)</h3>
+                    </div>
+                    <button class="ghost-button news-trigger-btn" type="button" onclick="window.openRedNewsModal()">
+                      Full Calendar ↗
+                    </button>
+                  </div>
+                  <div class="bento-news-body" id="homeRedNewsBody">
+                    <!-- Populated dynamically by app.js -->
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="landing-hint">Click any module card to launch</div>
+          </section>
+          
+          <section class="view" id="overview" data-title="Today" data-kicker="Command Center">
+            <div class="today-workflow-tiles">
+               <div class="workflow-tile" id="tilePlan" role="button" tabindex="0">
+                 <div class="tile-summary-header">
+                   <div class="tile-icon">☀️</div>
+                   <div class="tile-info">
+                     <span class="tile-kicker">Pre-market</span>
+                     <h3 class="tile-title">Today's Plan</h3>
+                     <p class="tile-status" id="statusPlanText">Not started</p>
+                   </div>
+                   <div class="tile-arrow">↓</div>
+                 </div>
+                 <div class="tile-details">
+                   <div class="tile-details-content">
+                     <p>Define today's trading plan, major support/resistance levels, rules compliance targets, and your initial psychological state.</p>
+                     <button class="primary-button compact tile-action-btn" id="openPlanSheetBtn" type="button">Open Plan Checklist</button>
+                   </div>
+                 </div>
+               </div>
+               <div class="workflow-tile" id="tileReview" role="button" tabindex="0">
+                 <div class="tile-summary-header">
+                   <div class="tile-icon">🌙</div>
+                   <div class="tile-info">
+                     <span class="tile-kicker">Daily close</span>
+                     <h3 class="tile-title">Daily Review</h3>
+                     <p class="tile-status" id="statusReviewText">Not started</p>
+                   </div>
+                   <div class="tile-arrow">↓</div>
+                 </div>
+                 <div class="tile-details">
+                   <div class="tile-details-content">
+                     <p>Review the day's trades, verify compliance rate, note emotional biases, and write down mistakes to lock in learnings.</p>
+                     <button class="primary-button compact tile-action-btn" id="openReviewSheetBtn" type="button">Start Post-Market Review</button>
+                   </div>
+                 </div>
+               </div>
+            </div>
+
+            <!-- Mindfulness & Streak Achievement Banner -->
+            <div class="mindfulness-banner" id="mindfulnessBanner" style="display: none;">
+              <div class="streak-badge">
+                <span class="fire-icon">🔥</span>
+                <span class="streak-count" id="streakCount">0</span>-Trade Discipline Streak
+              </div>
+              <div class="calm-diagnostic" id="calmDiagnostic">
+                Advantage: Logging trades in Calm/Focused state increases average Win Rate.
+              </div>
+            </div>
+
+            <section class="panel today-open-panel">
+              <div class="panel-head">
+                <div><p class="eyebrow">Open Trades</p><h2>Live execution</h2></div>
+                <button class="ghost-button" type="button" data-view-shortcut="journal">Start Trade</button>
+              </div>
+              <div class="mobile-cards always" id="todayOpenTradeCards"></div>
+            </section>
+
+            <div class="overview-grid">
+              <section class="panel chart-panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Equity</p>
+                    <h2>R-based journey</h2>
+                  </div>
+                  <span id="tradeCountLabel">0 trades</span>
+                </div>
+                <svg class="line-chart" id="equityChart" viewBox="0 0 760 300" role="img" aria-label="Equity curve"></svg>
+                <div class="zero-state-card" id="equityZeroState" style="display: none;">
+                  <div class="zero-state-artwork">
+                    <div class="glow-orb"></div>
+                    <svg class="artwork-svg" viewBox="0 0 100 100">
+                      <path class="wave-path" d="M10,80 Q25,80 40,80 T70,80 T90,80" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round"></path>
+                      <circle cx="50" cy="50" r="8" fill="var(--blue-soft)" stroke="var(--blue)" stroke-width="2"></circle>
+                    </svg>
+                  </div>
+                  <h3>No Trading Data Yet</h3>
+                  <p>Your equity curve will build dynamically as you log trades.</p>
+                </div>
+              </section>
+
+              <section class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">This week</p>
+                    <h2>Operating status</h2>
+                  </div>
+                </div>
+                <div class="status-grid" id="statusGrid"></div>
+              </section>
+            </div>
+
+            <div class="today-dashboard-row">
+              <section class="panel rings-panel" aria-label="Risk activity rings">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Risk control</p>
+                    <h2>Activity rings</h2>
+                  </div>
+                </div>
+                <div class="rings-widget-content">
+                  <div class="rings-svg-wrap">
+                    <svg class="activity-rings" viewBox="0 0 150 150">
+                      <circle class="ring-track ring-track-outer" cx="75" cy="75" r="60" stroke-width="10"></circle>
+                      <circle class="ring-track ring-track-middle" cx="75" cy="75" r="46" stroke-width="10"></circle>
+                      <circle class="ring-track ring-track-inner" cx="75" cy="75" r="32" stroke-width="10"></circle>
+                      
+                      <circle class="ring-fill ring-fill-outer" id="ringTrades" cx="75" cy="75" r="60" stroke-width="10" stroke-linecap="round" transform="rotate(-90 75 75)"></circle>
+                      <circle class="ring-fill ring-fill-middle" id="ringLoss" cx="75" cy="75" r="46" stroke-width="10" stroke-linecap="round" transform="rotate(-90 75 75)"></circle>
+                      <circle class="ring-fill ring-fill-inner" id="ringRules" cx="75" cy="75" r="32" stroke-width="10" stroke-linecap="round" transform="rotate(-90 75 75)"></circle>
+                    </svg>
+                  </div>
+                  <div class="rings-legend">
+                    <div class="legend-item legend-outer">
+                      <span class="legend-dot"></span>
+                      <div class="legend-info">
+                        <span class="legend-label">Trades</span>
+                        <strong class="legend-val" id="legendTradesVal">0/4</strong>
+                      </div>
+                    </div>
+                    <div class="legend-item legend-middle">
+                      <span class="legend-dot"></span>
+                      <div class="legend-info">
+                        <span class="legend-label">Loss Limit</span>
+                        <strong class="legend-val" id="legendLossVal">0.00R / -2.00R</strong>
+                      </div>
+                    </div>
+                    <div class="legend-item legend-inner">
+                      <span class="legend-dot"></span>
+                      <div class="legend-info">
+                        <span class="legend-label">Rules Followed</span>
+                        <strong class="legend-val" id="legendRulesVal">100%</strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="panel ios-metrics-widget" aria-label="Performance metrics">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Performance</p>
+                    <h2>Key metrics</h2>
+                  </div>
+                </div>
+                <div class="metrics-grid-compact">
+                  <div class="metric-item">
+                    <span class="metric-label">Expectancy</span>
+                    <strong class="metric-value" id="expectancyMetric">0.00R</strong>
+                    <span class="metric-desc">Average edge</span>
+                  </div>
+                  <div class="metric-item">
+                    <span class="metric-label">Win Rate</span>
+                    <strong class="metric-value" id="winRateMetric">0%</strong>
+                    <span class="metric-desc">Wins / closed</span>
+                  </div>
+                  <div class="metric-item">
+                    <span class="metric-label">Profit Factor</span>
+                    <strong class="metric-value" id="profitFactorMetric">0.00</strong>
+                    <span class="metric-desc">Gross W / L</span>
+                  </div>
+                  <div class="metric-item">
+                    <span class="metric-label">Max Drawdown</span>
+                    <strong class="metric-value" id="drawdownMetric">0.00R</strong>
+                    <span class="metric-desc">Peak-to-trough</span>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+
+
+            <section class="panel"><div class="panel-head"><div><p class="eyebrow">Workflow</p><h2>Today status</h2></div></div><div class="insight-grid" id="workflowStatus"></div></section>
+          </section>
+
+          <section class="view" id="missions" data-title="Missions" data-kicker="Motivation">
+            <!-- XP Status Widget -->
+            <section class="panel xp-status-panel">
+              <div class="xp-rainbow-glow"></div>
+              <div class="xp-status-content">
+                <div class="xp-badge-wrap">
+                  <div class="xp-badge" id="xpLevelBadge">Lvl 1</div>
+                </div>
+                <div class="xp-details">
+                  <span class="xp-kicker" id="xpTitleLabel">Discipline Level:</span>
+                  <h2 class="xp-level-title" id="xpLevelTitle">Impulsive Novice</h2>
+                  <div class="xp-bar-container">
+                    <div class="xp-bar-fill" id="xpBarFill" style="width: 0%;"></div>
+                  </div>
+                  <span class="xp-numerical" id="xpNumerical">0 / 100 XP</span>
+                </div>
+              </div>
+            </section>
+
+            <!-- Daily Micro-Missions -->
+            <section class="panel daily-quests-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Daily habits</p>
+                  <h2>Daily Quests</h2>
+                </div>
+              </div>
+              <div class="scroll-list-container">
+                <div class="quests-grid scroll-list" id="questsList">
+                  <div class="quest-item" id="questPlanTile">
+                    <div class="quest-icon">☀️</div>
+                    <div class="quest-info">
+                      <strong>Pre-market Plan</strong>
+                      <span>Lock in bias & levels (+10 XP)</span>
+                    </div>
+                    <div class="quest-status" id="questPlanStatus">Pending</div>
+                  </div>
+                  <div class="quest-item" id="questRiskTile">
+                    <div class="quest-icon">🔒</div>
+                    <div class="quest-info">
+                      <strong>Risk Control Shield</strong>
+                      <span>Daily loss & trade limit respected (+10 XP)</span>
+                    </div>
+                    <div class="quest-status" id="questRiskStatus">Pending</div>
+                  </div>
+                  <div class="quest-item" id="questReviewTile">
+                    <div class="quest-icon">🌙</div>
+                    <div class="quest-info">
+                      <strong>Close-out Review</strong>
+                      <span>Review the day's trades (+10 XP)</span>
+                    </div>
+                    <div class="quest-status" id="questReviewStatus">Pending</div>
+                  </div>
+                </div>
+                <div class="top-gradient"></div>
+                <div class="bottom-gradient"></div>
+            </section>
+
+            <!-- Trader Achievement Badges -->
+            <section class="panel badges-panel" style="margin-top:16px;">
+              <div class="panel-head" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                <div>
+                  <p class="eyebrow">Milestones & Trophies</p>
+                  <h2>Trader Badges (成就勋章馆)</h2>
+                </div>
+                <span class="tag info" id="badgeUnlockCountTag" style="font-size:12px; font-weight:700; padding:6px 12px;">0 / 7 Unlocked</span>
+              </div>
+              <div class="badge-grid" id="badgeShowcaseGrid"></div>
+            </section>
+
+            <!-- Epic Mission Panel -->
+            <section class="panel reward-mission-panel" id="rewardMissionPanel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Mindfulness incentive</p>
+                  <h2>Epic Reward Mission</h2>
+                </div>
+              </div>
+              
+              <!-- 1. Setup View -->
+              <div class="reward-state-view" id="rewardSetupView">
+                <p class="reward-desc">Set a self-discipline target and tie it to a real-world reward to train your trading psychology.</p>
+                <form id="rewardSetupForm" class="reward-setup-form">
+                  <div class="form-row">
+                    <div class="form-group">
+                      <select id="rewardTargetType" required>
+                        <option value="streak">3-Trade Compliance Streak</option>
+                        <option value="streak5">5-Trade Compliance Streak</option>
+                        <option value="compliance">90% Compliance (Last 10 trades)</option>
+                        <option value="rgain">Gain 5R Multiple</option>
+                      </select>
+                      <label class="floating-label">Target Goal</label>
+                    </div>
+                    <div class="form-group">
+                      <input id="rewardNameInput" required placeholder=" " maxlength="40" />
+                      <label class="floating-label">My Reward (e.g. Steak Dinner 🥩)</label>
+                    </div>
+                  </div>
+                  <button class="primary-button" type="submit" id="btnActivateReward">Activate Mission</button>
+                </form>
+              </div>
+
+              <!-- 2. Progress View -->
+              <div class="reward-state-view hidden" id="rewardProgressView">
+                <div class="reward-progress-header">
+                  <div class="reward-goal-details">
+                    <span class="reward-goal-label">ACTIVE MISSION:</span>
+                    <strong class="reward-goal-title" id="rewardProgressGoal">Compliance Streak</strong>
+                  </div>
+                  <div class="reward-prize">
+                    <span class="prize-tag">🎁 Reward: <strong id="rewardProgressPrize">Steak Dinner</strong></span>
+                  </div>
+                </div>
+                <div class="reward-progress-bar-wrap">
+                  <div class="reward-progress-bar-fill" id="rewardProgressBarFill" style="width: 0%;"></div>
+                </div>
+                <div class="reward-progress-footer">
+                  <span class="progress-text" id="rewardProgressText">Progress: 0 / 5</span>
+                  <button class="ghost-button danger" type="button" id="btnCancelReward" style="padding: 4px 8px; font-size: 11px;">Cancel Mission</button>
+                </div>
+              </div>
+
+              <!-- 3. Completed View -->
+              <div class="reward-state-view hidden" id="rewardCompletedView">
+                <div class="reward-completed-content">
+                  <div class="reward-badge-glow">🏆</div>
+                  <h3>Mission Accomplished!</h3>
+                  <p class="reward-congrats">You stayed disciplined and achieved your goal.</p>
+                  <div class="reward-gift-box">
+                    <span class="gift-icon">🎁</span>
+                    <strong id="rewardCompletedPrize">Steak Dinner</strong>
+                  </div>
+                  <button class="primary-button reward-claim-btn" type="button" id="btnResetReward">Claim & Reset</button>
+                </div>
+              </div>
+            </section>
+
+            <!-- Achievement Hall of Fame -->
+            <section class="panel achievements-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Hall of fame</p>
+                  <h2>Redeemed Achievements</h2>
+                </div>
+              </div>
+              <div class="achievements-grid" id="achievementsGrid">
+                <!-- Achievements list will be injected here dynamically -->
+              </div>
+            </section>
+          </section>
+
+          <section class="view" id="journal" data-title="Journal" data-kicker="Execution">
+            <section class="panel sop-workspace">
+              <div class="journey-header">
+                <div class="journey-title">
+                  <p class="eyebrow">SOP Journey</p>
+                  <h2 id="activeSopTitle">Active SOP</h2>
+                  <p id="activeJourneyMeta">One SOP. One account. One clean record at a time.</p>
+                </div>
+                <div class="journey-balance">
+                  <span>Current Balance</span>
+                  <strong id="activeAccountBalance">$1,000</strong>
+                  <small id="activeAccountName">Main Account</small>
+                  <button class="text-button balance-edit" type="button" onclick="window.openWalletManagerModal()">⚙️ Manage Wallets</button>
+                </div>
+                <div class="row-actions sop-controls" style="align-items: center; display: flex; gap: 8px;">
+                  <span style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;">Workspace Context:</span>
+                  <select id="activeSopSelect" aria-label="Active SOP"></select>
+                  <select id="accountFilterSelect" aria-label="Active account"></select>
+                  <button class="primary-button" type="button" data-open-capture>Start Trade</button>
+                </div>
+              </div>
+
+              <div class="sop-maturity" id="sopGrowthPanel"></div>
+
+              <details class="soft-disclosure">
+                <summary>SOP Library</summary>
+                <div class="disclosure-content">
+                  <div class="row-actions">
+                    <button class="ghost-button" id="journalAddAccountBtn" type="button">Add Account</button>
+                    <button class="primary-button" id="journalAddSopBtn" type="button">Add SOP</button>
+                  </div>
+                  <div class="scroll-list-container">
+                    <div class="sop-card-grid scroll-list" id="sopCards"></div>
+                    <div class="top-gradient"></div>
+                    <div class="bottom-gradient"></div>
+                  </div>
+                  <div class="account-manager" id="accountManagerPanel"></div>
+                </div>
+              </details>
+            </section>
+
+            <section class="panel sop-timeline-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Timeline</p>
+                  <h2>SOP record trail</h2>
+                </div>
+                <div class="segment-control compact" id="journalViewToggle" aria-label="Journal view">
+                  <button class="segment active" data-journal-view="timeline" type="button">Timeline</button>
+                  <button class="segment" data-journal-view="table" type="button">Table</button>
+                </div>
+              </div>
+              <div class="scroll-list-container">
+                <div class="sop-timeline scroll-list" id="sopTimeline"></div>
+                <div class="top-gradient"></div>
+                <div class="bottom-gradient"></div>
+              </div>
+              <div class="zero-state-card" id="timelineZeroState" style="display: none;">
+                <div class="zero-state-artwork">
+                  <div class="glow-orb" style="background: radial-gradient(circle, rgba(52, 199, 89, 0.2) 0%, transparent 70%);"></div>
+                  <svg class="artwork-svg" viewBox="0 0 100 100">
+                    <line x1="50" y1="20" x2="50" y2="80" stroke="var(--muted)" stroke-width="2" stroke-dasharray="4,4"></line>
+                    <circle cx="50" cy="50" r="6" fill="var(--green-soft)" stroke="var(--green)" stroke-width="2"></circle>
+                  </svg>
+                </div>
+                <h3>Empty Journal Trail</h3>
+                <p>Log a trade using the "Log Trade" button to start your timeline.</p>
+              </div>
+            </section>
+
+            <section class="entry-layout">
+
+              <section class="panel trade-table-panel journal-table-view hidden" id="journalTablePanel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Open Trades</p>
+                    <h2>In progress</h2>
+                  </div>
+                </div>
+                <div class="mobile-cards always" id="openTradeCards"></div>
+              </section>
+
+              <section class="panel trade-table-panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Closed Trades</p>
+                    <h2>Completed records</h2>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <select id="ruleFilterSelect" aria-label="Filter rule status">
+                      <option value="All">All Rules (全量规则)</option>
+                      <option value="followed">🟢 Followed (遵守SOP)</option>
+                      <option value="violated">🔴 Violated (违反SOP)</option>
+                      <option value="incomplete">🟠 SOP Incomplete (SOP待完善)</option>
+                    </select>
+                    <select id="setupFilter" aria-label="Filter setup"><option value="All">All setups</option></select>
+                  </div>
+                </div>
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Date</th><th>Symbol</th><th>Setup</th><th>R</th><th>Grade</th><th>Rule</th><th>Media</th><th></th>
+                      </tr>
+                    </thead>
+                    <tbody id="tradeRows"></tbody>
+                  </table>
+                </div>
+                <div class="mobile-cards" id="mobileTradeCards"></div>
+              </section>
+            </section>
+          </section>
+
+          <section class="view" id="review" data-title="Review" data-kicker="Evidence">
+            <div class="segment-control" aria-label="Review sections">
+              <button class="segment active" data-review-panel="insights" type="button">Insights</button>
+              <button class="segment" data-review-panel="simulation" type="button">🎲 Simulation</button>
+              <button class="segment" data-review-panel="charts" type="button">Charts</button>
+              <button class="segment" data-review-panel="calendar" type="button">Calendar</button>
+              <button class="segment" data-review-panel="playbook" type="button">Playbook</button>
+              <button class="segment" data-review-panel="reflections" type="button">Reflections</button>
+            </div>
+
+            <div class="review-panel active" id="review-insights">
+              <section class="panel">
+                <div class="panel-head"><div><p class="eyebrow">Review</p><h2>Current read</h2></div></div>
+                <div class="insight-grid" id="summaryCards"></div>
+              </section>
+
+              <section class="panel heatmap-panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Mindfulness & Consistency</p>
+                    <h2>Discipline heatmap</h2>
+                  </div>
+                </div>
+                <div class="heatmap-container" style="margin-top:14px; overflow-x:auto; padding-bottom:8px;">
+                  <div class="heatmap-grid" id="disciplineHeatmap"></div>
+                </div>
+              </section>
+
+              <!-- Session & Day-of-Week Quantitative Heatmap Matrix Panel -->
+              <section class="panel heatmap-panel" id="sessionHeatmapCard" style="margin-top:24px;">
+                <div class="panel-head" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                  <div>
+                    <p class="eyebrow">Quantitative Matrix</p>
+                    <h2>Session & Day-of-Week Profitability Matrix (交易时段与星期胜率/期望值热力图)</h2>
+                  </div>
+                  <span class="tag info" style="font-weight: 600;">2D Matrix Heatmap</span>
+                </div>
+                <p style="font-size: 13px; color: var(--muted); margin-top: 4px; margin-bottom: 14px;">
+                  Analyze your historical performance across days of the week and market sessions to pinpoint your highest expectancy trading windows.
+                </p>
+                <div class="heatmap-table-wrapper" id="heatmapMatrixContainer" style="overflow-x: auto;">
+                  <!-- Dynamically populated 2D Heatmap Grid -->
+                </div>
+              </section>
+
+              <!-- MAE vs MFE Excursion Scatter Plot Matrix Panel -->
+              <section class="panel scatter-panel" id="maeMfeScatterPanel" style="margin-top:24px;">
+                <div class="panel-head" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                  <div>
+                    <p class="eyebrow">Quantitative Excursion</p>
+                    <h2>MAE vs MFE Scatter Distribution (逆向/顺向浮动 R 散点分布图)</h2>
+                  </div>
+                  <span class="tag info" style="font-weight: 600;">2D Scatter Matrix</span>
+                </div>
+                <p style="font-size: 13px; color: var(--muted); margin-top: 4px; margin-bottom: 14px;">
+                  Compare Maximum Adverse Excursion (MAE) against Maximum Favorable Excursion (MFE) to evaluate stop-loss placement and profit retention.
+                </p>
+                <div style="position:relative; width:100%; overflow-x:auto;">
+                  <svg id="maeMfeScatterSvg" viewBox="0 0 760 320" style="width:100%; height:auto; min-width:500px;" role="img" aria-label="MAE vs MFE Scatter Plot"></svg>
+                </div>
+                <div style="margin-top:12px; font-size:11px; color:var(--muted); display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+                  <span style="display:flex; align-items:center; gap:6px;"><span style="width:10px; height:10px; background:#34c759; border-radius:50%; display:inline-block;"></span> Winning Trades (浮盈离场)</span>
+                  <span style="display:flex; align-items:center; gap:6px;"><span style="width:10px; height:10px; background:#ff3b30; border-radius:50%; display:inline-block;"></span> Losing Trades (浮亏/止损离场)</span>
+                </div>
+              </section>
+              <section class="panel" id="insightDetailPanel" style="display:none;">
+                <div class="panel-head"><div><p class="eyebrow" id="insightDetailKicker">Detail</p><h2 id="insightDetailTitle">Metric</h2></div><button class="ghost-button" id="closeInsightDetail">Close</button></div>
+                <svg class="line-chart" id="insightDetailChart" viewBox="0 0 760 300"></svg>
+                <div class="insight-grid" id="insightDetailCards"></div>
+              </section>
+            </div>
+
+            <!-- Dedicated Monte Carlo Simulation Panel Area -->
+            <div class="review-panel" id="review-simulation">
+              <section class="panel monte-carlo-panel" id="monteCarloPanel">
+                <div class="panel-head" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                  <div>
+                    <p class="eyebrow">Quantitative Probability Engine</p>
+                    <h2>🎲 Monte Carlo Equity Simulation (蒙特卡洛资金曲线推演专区)</h2>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:10px;">
+                    <label style="font-size:12px; color:var(--muted); font-weight:600; display:flex; align-items:center; gap:6px;">
+                      Simulated Trades:
+                      <select id="mcTradeCountSelect" style="padding:4px 8px; font-size:12px; border-radius:8px;">
+                        <option value="30">Next 30 Trades</option>
+                        <option value="50" selected>Next 50 Trades</option>
+                        <option value="100">Next 100 Trades</option>
+                      </select>
+                    </label>
+                    <button class="primary-button" type="button" id="btnRunMonteCarlo" style="padding:6px 14px; font-size:12px;">🎲 Run 1,000 Trials</button>
+                  </div>
+                </div>
+
+                <!-- Multi-Line Simulation SVG Canvas -->
+                <div style="position:relative; margin-top:16px;">
+                  <svg class="line-chart" id="monteCarloChart" viewBox="0 0 760 320" role="img" aria-label="Monte Carlo Equity Trails"></svg>
+                </div>
+
+                <div style="margin-top:16px; font-size:11px; color:var(--muted); display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+                  <span style="display:flex; align-items:center; gap:6px;"><span style="width:12px; height:3px; background:#30d158; display:inline-block; border-radius:2px;"></span> 🌟 Best-Case Path (95th Percentile)</span>
+                  <span style="display:flex; align-items:center; gap:6px;"><span style="width:12px; height:3px; background:#0071e3; display:inline-block; border-radius:2px;"></span> 📈 Expected Path (Median 50th)</span>
+                  <span style="display:flex; align-items:center; gap:6px;"><span style="width:12px; height:3px; background:#ff9f0a; display:inline-block; border-radius:2px;"></span> 🛡️ Drawdown Floor (5th Percentile)</span>
+                </div>
+
+                <!-- Quantitative Metrics Breakdown Grid -->
+                <div class="insight-grid" id="monteCarloMetricsGrid" style="margin-top:20px;"></div>
+              </section>
+            </div>
+
+            <div class="review-panel" id="review-charts">
+              <div class="analytics-grid">
+                <section class="panel"><div class="panel-head"><div><p class="eyebrow">Drawdown</p><h2>Risk pressure</h2></div></div><svg class="line-chart" id="drawdownChart" viewBox="0 0 760 260"></svg></section>
+                <section class="panel"><div class="panel-head"><div><p class="eyebrow">Distribution</p><h2>R multiple spread</h2></div></div><div class="histogram" id="distributionChart"></div></section>
+              </div>
+              <section class="panel"><div class="panel-head"><div><p class="eyebrow">Setups</p><h2>Performance by setup</h2></div></div><div class="bar-list" id="setupBars"></div></section>
+              <section class="panel" id="mistakesPanel"><div class="panel-head"><div><p class="eyebrow">Execution Analysis</p><h2>Cost of Mistakes (Observed Result)</h2></div></div><div class="bar-list" id="mistakeBars"></div></section>
+              <div class="analytics-grid">
+                <section class="panel"><div class="panel-head"><div><p class="eyebrow">Timing</p><h2>Weekday performance</h2></div></div><div class="bar-list" id="weekdayBars"></div></section>
+                <section class="panel"><div class="panel-head"><div><p class="eyebrow">Direction</p><h2>Long vs Short</h2></div></div><div class="bar-list" id="directionBars"></div></section>
+              </div>
+              <div class="analytics-grid">
+                <section class="panel"><div class="panel-head"><div><p class="eyebrow">Behavior</p><h2>Emotion impact</h2></div></div><div class="bar-list" id="emotionBars"></div></section>
+                <section class="panel"><div class="panel-head"><div><p class="eyebrow">Quality</p><h2>Grade breakdown</h2></div></div><div class="bar-list" id="gradeBars"></div></section>
+              </div>
+            </div>
+
+            <div class="review-panel" id="review-calendar">
+              <div class="cycle-grid">
+                <section class="panel">
+                  <div class="panel-head">
+                    <div><p class="eyebrow">Calendar</p><h2 id="calendarTitle">Month</h2></div>
+                    <div style="display: flex; gap: 8px;">
+                      <button class="ghost-button" id="prevMonthBtn" type="button" aria-label="Previous month" style="padding: 4px 8px; font-size: 12px;">◀</button>
+                      <button class="ghost-button" id="nextMonthBtn" type="button" aria-label="Next month" style="padding: 4px 8px; font-size: 12px;">▶</button>
+                    </div>
+                  </div>
+                  <div class="calendar" id="calendarGrid"></div>
+                </section>
+                <section class="panel">
+                  <div class="panel-head"><div><p class="eyebrow">Day detail</p><h2 id="dayDetailTitle">Select a day</h2></div></div>
+                  <div id="dayDetail" class="day-detail"></div>
+                </section>
+              </div>
+              <div class="analytics-grid">
+                <section class="panel"><div class="panel-head"><div><p class="eyebrow">Weekly</p><h2>Cycle summary</h2></div></div><div class="insight-grid" id="weeklySummary"></div></section>
+                <section class="panel"><div class="panel-head"><div><p class="eyebrow">Monthly</p><h2>Consistency</h2></div></div><div class="insight-grid" id="monthlySummary"></div></section>
+              </div>
+            </div>
+
+            <div class="review-panel" id="review-playbook">
+              <section class="panel">
+                <div class="panel-head">
+                  <div><p class="eyebrow">SOP Library</p><h2>Trade only what you can explain</h2></div>
+                  <div class="row-actions">
+                    <button class="ghost-button" id="addAccountBtn" type="button">Add Account</button>
+                    <button class="primary-button" id="addSopBtn" type="button">Add SOP</button>
+                  </div>
+                </div>
+                <div class="playbook-grid" id="playbookGrid"></div>
+              </section>
+            </div>
+
+            <div class="review-panel" id="review-reflections">
+              <section class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Self-Reflection & Shame Wall</p>
+                    <h2>SOP Violations & Lessons</h2>
+                  </div>
+                </div>
+                <div class="shame-wall-summary" id="shameWallSummary">
+                  <!-- Dynamically rendered statistics on rule violations -->
+                </div>
+              </section>
+              
+              <section class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Violation Ledger</p>
+                    <h2>Trades with Broken Rules</h2>
+                  </div>
+                </div>
+                <div class="scroll-list-container">
+                  <div class="shame-trades-list scroll-list" id="shameTradesList">
+                    <!-- Dynamically rendered rule-broken trades and reflections -->
+                  </div>
+                  <div class="top-gradient"></div>
+                  <div class="bottom-gradient"></div>
+                </div>
+              </section>
+            </div>
+
+          </section>
+
+          <section class="view" id="settings" data-title="System" data-kicker="Preferences">
+            <form class="panel settings-form" id="settingsForm">
+              <div class="panel-head"><div><p class="eyebrow">Preferences</p><h2>Personal system</h2></div></div>
+              <div class="form-row">
+                <label>Default Symbol<input name="defaultSymbol" required /></label>
+                <label>Risk Per Trade ($)<input name="riskPerTrade" type="number" min="1" step="1" required /></label>
+              </div>
+              <div class="form-row">
+                <label>Daily Max Loss (R)<input name="dailyMaxLossR" type="number" step="0.25" required /></label>
+                <label>Max Trades Per Day<input name="maxTradesPerDay" type="number" min="1" step="1" required /></label>
+              </div>
+              <label>Setups<textarea name="setups" rows="4" placeholder="One setup per line"></textarea></label>
+              <label>Daily Rules<textarea name="dailyRules" rows="4" placeholder="One rule per line"></textarea></label>
+              <label style="margin-top: 12px; margin-bottom: 2px; font-weight: 600; color: var(--ink);">Checklist Label Customization</label>
+              <div class="form-row" style="margin-bottom: 12px; gap: 12px; flex-wrap: wrap;">
+                <label style="flex: 1; min-width: 140px; font-size: 13px;">Plan<input name="checklistLabelPlan" required /></label>
+                <label style="flex: 1; min-width: 140px; font-size: 13px;">Trigger<input name="checklistLabelTrigger" required /></label>
+                <label style="flex: 1; min-width: 140px; font-size: 13px;">Stop<input name="checklistLabelStop" required /></label>
+                <label style="flex: 1; min-width: 140px; font-size: 13px;">Target<input name="checklistLabelTarget" required /></label>
+                <label style="flex: 1; min-width: 140px; font-size: 13px;">Emotion<input name="checklistLabelEmotion" required /></label>
+              </div>
+              <div class="form-row" style="margin-top: 8px; gap: 24px; flex-wrap: wrap; align-items: center;">
+                <label style="display: flex; align-items: center; gap: 8px; flex-direction: row; font-size: 14px; font-weight: 500; cursor: pointer; margin: 0;">
+                  <input type="checkbox" name="backupReminder" style="width: 16px; height: 16px; margin: 0; cursor: pointer;" />
+                  Enable 7-Day Auto-Backup Reminder
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; flex-direction: row; font-size: 14px; font-weight: 500; cursor: pointer; margin: 0;">
+                  <input type="checkbox" name="enableSounds" style="width: 16px; height: 16px; margin: 0; cursor: pointer;" />
+                  Enable System Sound Effects
+                </label>
+              </div>
+              <div class="form-row" style="margin-top: 12px; gap: 24px; flex-wrap: wrap;">
+                <label style="flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 4px;">
+                  3D Carousel Drag Sensitivity
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <input type="range" name="carouselDragSensitivity" min="0.05" max="0.5" step="0.01" style="flex: 1; cursor: pointer; height: 6px; border-radius: 3px;" />
+                    <span id="carouselDragSensVal" style="font-size: 13px; font-weight: 600; min-width: 32px; text-align: right;">0.18</span>
+                  </div>
+                </label>
+                <label style="flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 4px;">
+                  3D Carousel Snap Friction (Dampening)
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <input type="range" name="carouselSnapFriction" min="0.01" max="0.2" step="0.01" style="flex: 1; cursor: pointer; height: 6px; border-radius: 3px;" />
+                    <span id="carouselSnapFricVal" style="font-size: 13px; font-weight: 600; min-width: 32px; text-align: right;">0.04</span>
+                  </div>
+                </label>
+              </div>
+              <button class="primary-button" type="submit">Save Preferences</button>
+            </form>
+
+            <!-- Data Backup & Export Center Panel -->
+            <div class="panel data-export-panel" style="margin-top: 24px;">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Data Governance & Reporting</p>
+                  <h2>Data Backup & Export Center</h2>
+                </div>
+              </div>
+              <p style="font-size: 13px; color: var(--muted); margin-bottom: 20px;">
+                Safeguard your trading history with 1-click JSON backups, export trade logs to CSV for Excel/Numbers, or generate a printable Monthly PDF Performance Executive Report.
+              </p>
+              <!-- Real-Time Storage Diagnostics Monitor Widget -->
+              <div class="storage-diagnostics-box" id="storageDiagnosticsBox" style="margin: 16px 0; padding: 14px 18px; border-radius: 14px; background: rgba(0, 113, 227, 0.06); border: 1px solid rgba(0, 113, 227, 0.2);">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                  <strong style="font-size: 13px; color: var(--blue); display: flex; align-items: center; gap: 6px;">
+                    ⚡ IndexedDB 离线存储容量诊断 (Storage Diagnostics)
+                  </strong>
+                  <span class="tag info" id="storageEngineBadge" style="font-size: 10px; padding: 2px 6px;">IndexedDB v1</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--text);">
+                  <div>已用容量: <strong id="storageUsedMb">计算中...</strong></div>
+                  <div>估算容量上限: <strong id="storageQuotaMb">支持 G 级别存储</strong></div>
+                  <div>截屏图表数: <strong id="storageImageCount">0 张 (Canvas 高清压缩)</strong></div>
+                </div>
+              </div>
+              <div class="form-row" style="gap: 12px; flex-wrap: wrap;">
+                <button class="primary-button pill-button" type="button" onclick="window.exportJSONBackup()" style="border-radius: 9999px; padding: 10px 20px;">
+                  <span class="label-stack"><span class="pill-label">⬇️ Export JSON Backup</span></span>
+                </button>
+                <label class="ghost-button pill-button" style="border-radius: 9999px; padding: 10px 20px; cursor: pointer; display: inline-flex; align-items: center;">
+                  <span>⬆️ Import JSON Backup</span>
+                  <input type="file" accept=".json" style="display: none;" onchange="window.importJSONBackup(this)" />
+                </label>
+                <button class="ghost-button pill-button" type="button" onclick="window.exportTradesCSV()" style="border-radius: 9999px; padding: 10px 20px;">
+                  <span>📊 Export Trades CSV</span>
+                </button>
+                <button class="ghost-button pill-button" type="button" onclick="window.generateMonthlyReport()" style="border-radius: 9999px; padding: 10px 20px;">
+                  <span>📄 Generate Monthly PDF Report</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Long Game Custom Alerts Panel -->
+            <form class="panel data-export-panel" id="lgCustomAlertsForm" style="margin-top: 24px;">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">The Long Game</p>
+                  <h2>Custom Behavioral Alerts</h2>
+                </div>
+              </div>
+              <p style="font-size: 13px; color: var(--muted); margin-bottom: 16px;">
+                Configure the thresholds for the Emergency Context and Behavioral alerts.
+              </p>
+              <div class="form-row">
+                <label>Consecutive Losses
+                  <input name="consecutiveLosses" type="number" min="1" step="1" required />
+                </label>
+                <label>SOP Change Window (Days)
+                  <input name="sopChangeWindowDays" type="number" min="1" step="1" required />
+                </label>
+              </div>
+              <div class="form-row">
+                <label>Shock/Breakthrough Delta (%)
+                  <input name="shockBreakRatioDelta" type="number" min="0" step="0.05" required />
+                </label>
+              </div>
+              <button class="primary-button" type="submit" style="margin-top: 12px;">Save Alert Config</button>
+            </form>
+
+            <section class="panel">
+              <div class="panel-head"><div><p class="eyebrow">Data</p><h2>Backup and restore</h2></div></div>
+              <div class="row-actions settings-actions">
+                <button class="icon-button quiet-action" id="exportCsvBtn" aria-label="Export CSV" title="Export CSV">CSV</button>
+                <button class="icon-button" id="exportJsonBtn" aria-label="Export JSON backup" title="Export JSON">Backup</button>
+                <label class="icon-button file-button" aria-label="Import JSON backup" title="Import JSON">
+                  Import
+                  <input id="importJsonInput" type="file" accept="application/json,.json" />
+                </label>
+                <button class="icon-button danger" id="resetBtn" aria-label="Reset demo data" title="Reset demo data">Reset Demo</button>
+              </div>
+              <div style="margin-top:14px; font-size:12px; color:var(--muted); text-align:right;">
+                Storage: <strong id="storageEstimate" style="color:var(--ink);">Checking...</strong>
+              </div>
+            </section>
+          </section>
+
+          <!-- ============================================== -->
+          <!-- P0 Phase: THE LONG GAME Module                 -->
+          <!-- ============================================== -->
+          <section class="view" id="long-game" data-title="The Long Game" data-kicker="Evidence">
+            <div class="long-game-grid" style="display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 5fr); gap: 24px;">
+              <!-- Left Column: Context & Events -->
+              <div class="lg-col-left" style="display: flex; flex-direction: column; gap: 24px;">
+                
+                <!-- Current Season Context -->
+                <section class="panel lg-season-panel" id="lgCurrentSeasonPanel">
+                  <div class="panel-head">
+                    <div>
+                      <p class="eyebrow">Current Season</p>
+                      <h2 id="lgSeasonTitle">No Active Season</h2>
+                    </div>
+                    <button class="ghost-button pill-button" type="button" onclick="window.manageLongGameSeason()" style="font-size: 12px; height: 28px; padding: 0 12px;">Manage</button>
+                  </div>
+                  <div class="lg-season-context" id="lgSeasonContext" style="font-size: 14px; color: var(--muted); margin-top: 12px;">
+                    Seasons provide context to your behavior. Start a season (e.g. BUILD, STABILIZE) to track longitudinal changes.
+                  </div>
+                </section>
+                
+                <!-- Raw Journal -->
+                <section class="panel lg-raw-journal-panel">
+                  <div class="panel-head">
+                    <div>
+                      <h2 style="font-size: 15px;">Raw Journal</h2>
+                    </div>
+                  </div>
+                  <textarea id="lgRawJournalInput" rows="3" placeholder="What's on your mind? No tags, no scores." style="width: 100%; border: 1px solid var(--hairline-strong); border-radius: 8px; padding: 12px; margin-top: 12px; background: var(--bg-input, transparent); resize: vertical;"></textarea>
+                  <div style="display: flex; justify-content: flex-end; margin-top: 12px;">
+                    <button class="primary-button pill-button" type="button" onclick="window.saveLgRawJournal()" style="font-size: 13px; height: 32px;">Save Entry</button>
+                  </div>
+                  <div id="lgRawJournalFeed" style="margin-top: 16px; display: flex; flex-direction: column; gap: 12px; max-height: 250px; overflow-y: auto;">
+                    <!-- Raw Journal entries injected here -->
+                  </div>
+                </section>
+                
+                <!-- Recent Events -->
+                <section class="panel lg-events-panel">
+                  <div class="panel-head">
+                    <div>
+                      <h2 style="font-size: 15px;">Meaningful Events</h2>
+                    </div>
+                    <button class="ghost-button pill-button" type="button" onclick="window.createLongGameEvent()" style="font-size: 12px; height: 28px; padding: 0 12px;">+ Add Event</button>
+                  </div>
+                  <div id="lgEventsFeed" style="margin-top: 16px; display: flex; flex-direction: column; gap: 12px;">
+                    <div class="empty-state">Not every trade needs to become a lesson.</div>
+                  </div>
+                </section>
+                
+              </div>
+              
+              <!-- Right Column: Evidence & Observations -->
+              <div class="lg-col-right" style="display: flex; flex-direction: column; gap: 24px;">
+                
+                <!-- Observations -->
+                <section class="panel lg-observations-panel">
+                  <div class="panel-head">
+                    <div>
+                      <h2 style="font-size: 15px;">Observations</h2>
+                    </div>
+                  </div>
+                  <div id="lgObservationsFeed" style="margin-top: 16px; display: flex; flex-direction: column; gap: 12px;">
+                    <div class="empty-state">When enough evidence accumulates, meaningful changes will surface here.</div>
+                  </div>
+                </section>
+                
+                <!-- Then -> Now Evidence -->
+                <section class="panel lg-evidence-panel">
+                  <div class="panel-head">
+                    <div>
+                      <p class="eyebrow">Behavioral Change</p>
+                      <h2 style="font-size: 15px;">Then &rarr; Now</h2>
+                    </div>
+                  </div>
+                  <div id="lgThenNowFeed" style="margin-top: 16px; display: flex; flex-direction: column; gap: 16px;">
+                    <div class="empty-state">Longitudinal evidence will appear here over time.</div>
+                  </div>
+                </section>
+                
+                <!-- Behavioral Trend Chart -->
+                <section class="panel lg-trend-panel">
+                  <div class="panel-head">
+                    <div>
+                      <p class="eyebrow">Behavioral Trend</p>
+                      <h2 style="font-size: 15px;">Historical Tracking</h2>
+                    </div>
+                  </div>
+                  <div style="margin-top: 16px; min-height: 200px;">
+                    <canvas id="lgTrendChartCanvas"></canvas>
+                  </div>
+                </section>
+                
+              </div>
+            </div>
+          </section>
+        </main>
+        
+        <!-- React Bits Inspired StaggeredMenu Drawer & Toggle Button -->
+        <div id="staggeredMenuWrapper" class="staggered-menu-wrapper" data-position="right">
+          <!-- Floating Staggered Menu Toggle Button (Always Visible) -->
+          <button id="staggeredMenuToggle" class="sm-toggle pill-button" type="button" aria-label="Open menu" aria-expanded="false">
+            <span class="sm-toggle-textWrap" aria-hidden="true">
+              <span class="sm-toggle-textInner" id="smToggleTextInner">
+                <span class="sm-toggle-line">Menu</span>
+                <span class="sm-toggle-line">Close</span>
+              </span>
+            </span>
+            <span class="sm-icon" id="smIcon">
+              <span class="sm-icon-line"></span>
+              <span class="sm-icon-line sm-icon-line-v"></span>
+            </span>
+          </button>
+
+          <!-- Staggered Underlay Layers -->
+          <div id="staggeredPrelayers" class="sm-prelayers" aria-hidden="true">
+            <div class="sm-prelayer sm-prelayer-1"></div>
+            <div class="sm-prelayer sm-prelayer-2"></div>
+          </div>
+
+          <!-- Staggered Slide-out Menu Panel -->
+          <aside id="staggeredMenuPanel" class="staggered-menu-panel" aria-hidden="true">
+            <div class="sm-panel-inner">
+              <ul class="sm-panel-list" role="list" data-numbering="true">
+                <li class="sm-panel-itemWrap">
+                  <a class="sm-panel-item" data-module="overview" href="#">
+                    <span class="sm-panel-itemLabel">📅 Today</span>
+                  </a>
+                </li>
+                <li class="sm-panel-itemWrap">
+                  <a class="sm-panel-item" data-module="journal" href="#">
+                    <span class="sm-panel-itemLabel">✍️ Journal</span>
+                  </a>
+                </li>
+                <li class="sm-panel-itemWrap">
+                  <a class="sm-panel-item" data-module="missions" href="#">
+                    <span class="sm-panel-itemLabel">🎯 Missions</span>
+                  </a>
+                </li>
+                <li class="sm-panel-itemWrap">
+                  <a class="sm-panel-item" data-module="review" href="#">
+                    <span class="sm-panel-itemLabel">📊 Review</span>
+                  </a>
+                </li>
+                <li class="sm-panel-itemWrap">
+                  <a class="sm-panel-item" data-module="settings" href="#">
+                    <span class="sm-panel-itemLabel">⚙️ System</span>
+                  </a>
+                </li>
+              </ul>
+
+              <div class="sm-socials" aria-label="Quick Actions">
+                <h3 class="sm-socials-title">Quick Actions</h3>
+                <ul class="sm-socials-list" role="list">
+                  <li class="sm-socials-item">
+                    <a href="#" onclick="if(window.openSheet) window.openSheet('tradeFormSheet'); return false;" class="sm-socials-link">+ Log Trade</a>
+                  </li>
+                  <li class="sm-socials-item">
+                    <a href="#" onclick="if(window.openSopModal) window.openSopModal(); return false;" class="sm-socials-link">SOP Rules</a>
+                  </li>
+                  <li class="sm-socials-item">
+                    <a href="#" onclick="if(window.openAccountModal) window.openAccountModal(); return false;" class="sm-socials-link">Accounts</a>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+
+    <!-- iOS Trade Detail Sheet -->
+    <div class="sheet-backdrop hidden" id="detailSheet" aria-hidden="true">
+      <div class="sheet-card" role="dialog" aria-modal="true">
+        <div class="sheet-bar"></div>
+        <div class="sheet-header">
+          <div>
+            <p class="eyebrow" id="detailSheetKicker">Detail</p>
+            <h2 id="detailSheetTitle">Trade detail</h2>
+          </div>
+          <button class="icon-button sheet-close" type="button" aria-label="Close sheet">✕</button>
+        </div>
+        <div class="sheet-body" id="detailSheetBody"></div>
+      </div>
+    </div>
+
+    <!-- ForexFactory High-Impact Red News Calendar Modal -->
+    <div class="sheet-backdrop hidden" id="redNewsModal" aria-hidden="true">
+      <div class="sheet-card news-modal-card" role="dialog" aria-modal="true">
+        <div class="sheet-bar"></div>
+        <div class="sheet-header">
+          <div>
+            <p class="eyebrow" style="color:#ef4444; font-weight:700;">🔴 ForexFactory High Impact</p>
+            <h2>Economic Calendar (红盒财经日历)</h2>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button id="ffSyncBtn" onclick="window.syncFFNews(true)" class="ghost-button" type="button" style="font-size:0.78rem; padding:5px 12px; min-height:auto;">🔄 Sync Now</button>
+            <button class="icon-button sheet-close" id="closeRedNewsModalBtn" type="button" aria-label="Close sheet">✕</button>
+          </div>
+        </div>
+        <div id="ffSyncStatus" style="font-size:0.76rem; color:var(--muted); padding:6px 20px 0; min-height:18px;"></div>
+        <div class="sheet-body">
+          <div class="news-currency-filters" id="newsCurrencyFilters">
+            <button class="filter-chip active" data-currency="All">All Currencies</button>
+            <button class="filter-chip" data-currency="USD">🇺🇸 USD</button>
+            <button class="filter-chip" data-currency="AUD">🇦🇺 AUD</button>
+            <button class="filter-chip" data-currency="EUR">🇪🇺 EUR</button>
+            <button class="filter-chip" data-currency="GBP">🇬🇧 GBP</button>
+            <button class="filter-chip" data-currency="JPY">🇯🇵 JPY</button>
+            <button class="filter-chip" data-currency="CAD">🇨🇦 CAD</button>
+          </div>
+          <!-- Add Event Form -->
+          <form id="redNewsAddForm" onsubmit="window.submitRedNewsEvent(event)" style="background:var(--paper); border:1px solid var(--hairline); border-radius:12px; padding:14px 16px; margin-bottom:14px; display:flex; flex-wrap:wrap; gap:8px; align-items:flex-end;">
+            <div style="font-size:0.78rem; font-weight:700; color:var(--muted); width:100%; margin-bottom:2px;">
+              ➕ Add Red Folder Event from 
+              <a href="https://www.forexfactory.com/calendar" target="_blank" rel="noreferrer" style="color:var(--blue);">ForexFactory</a>
+            </div>
+            <input id="rnDate" type="date" required style="flex:1; min-width:120px;" />
+            <input id="rnTime" type="time" required placeholder="HH:MM" style="flex:0.6; min-width:90px;" />
+            <select id="rnCurrency" style="flex:0.6; min-width:80px;">
+              <option>USD</option><option>AUD</option><option>EUR</option><option>GBP</option><option>JPY</option><option>CAD</option><option>CHF</option><option>NZD</option><option>CNY</option>
+            </select>
+            <input id="rnTitle" type="text" required placeholder="Event title (e.g. NFP)" style="flex:2; min-width:150px;" />
+            <input id="rnForecast" type="text" placeholder="Forecast" style="flex:0.7; min-width:80px;" />
+            <input id="rnPrevious" type="text" placeholder="Previous" style="flex:0.7; min-width:80px;" />
+            <button type="submit" class="primary-button" style="min-height:36px; padding:0 14px; font-size:0.82rem;">Add</button>
+          </form>
+          <div style="display:flex; justify-content:flex-end; margin-bottom:8px;">
+            <button onclick="window.clearPastNews()" class="ghost-button" style="font-size:0.75rem; padding:4px 12px; min-height:auto; color:var(--muted);">🗑 Clear past events</button>
+          </div>
+          <div class="table-wrap news-table-wrap">
+            <table class="news-table" id="redNewsTable">
+              <thead>
+                <tr>
+                  <th>Date &amp; Time</th>
+                  <th>Currency</th>
+                  <th>Impact</th>
+                  <th>Event Title</th>
+                  <th>Actual</th>
+                  <th>Forecast</th>
+                  <th>Previous</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="redNewsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action Bubble Menu -->
+    <div class="bubble-menu hidden" id="bubbleMenu" role="menu">
+      <button class="bubble-menu-item" id="bubbleBtnDetail" role="menuitem">
+        <span class="bubble-menu-icon">📊</span> View Detail
+      </button>
+      <button class="bubble-menu-item" id="bubbleBtnEdit" role="menuitem">
+        <span class="bubble-menu-icon">✍️</span> Edit Record
+      </button>
+      <button class="bubble-menu-item danger" id="bubbleBtnDelete" role="menuitem">
+        <span class="bubble-menu-icon">🗑️</span> Delete Record
+      </button>
+      <div class="bubble-menu-arrow"></div>
+    </div>
+
+    <div class="chart-tooltip hidden" id="chartTooltip" aria-hidden="true"></div>
+    <div class="toast-stack" id="toastStack" aria-live="polite"></div>
+
+    <!-- iOS Modal Sheets -->
+    <div class="sheet-backdrop hidden" id="planSheet" aria-hidden="true">
+      <div class="sheet-card" role="dialog" aria-modal="true">
+        <div class="sheet-bar"></div>
+        <div class="sheet-header">
+          <div>
+            <p class="eyebrow">Pre-market</p>
+            <h2>Today's Plan</h2>
+          </div>
+          <button class="icon-button sheet-close" type="button" aria-label="Close sheet">✕</button>
+        </div>
+        <div class="sheet-body">
+          <form id="planForm">
+            <div class="form-group">
+              <input name="workflowDate" type="date" required placeholder=" " />
+              <label class="floating-label">Workflow Date</label>
+            </div>
+            <div class="form-group">
+              <input name="bias" placeholder=" " />
+              <label class="floating-label">Market Bias</label>
+            </div>
+            <div class="form-group">
+              <textarea name="levels" rows="3" placeholder=" "></textarea>
+              <label class="floating-label">Key Levels</label>
+            </div>
+            <div class="form-group">
+              <input name="allowedSetups" placeholder=" " />
+              <label class="floating-label">Allowed Setups</label>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <input name="maxLossR" type="number" step="0.25" placeholder=" " />
+                <label class="floating-label">Max Loss (R)</label>
+              </div>
+              <div class="form-group">
+                <input name="maxTrades" type="number" min="1" step="1" placeholder=" " />
+                <label class="floating-label">Max Trades</label>
+              </div>
+            </div>
+            <button class="primary-button" type="submit">Save Plan</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="sheet-backdrop hidden" id="reviewSheet" aria-hidden="true">
+      <div class="sheet-card" role="dialog" aria-modal="true">
+        <div class="sheet-bar"></div>
+        <div class="sheet-header">
+          <div>
+            <p class="eyebrow">Daily close</p>
+            <h2>Daily Review</h2>
+          </div>
+          <button class="icon-button sheet-close" type="button" aria-label="Close sheet">✕</button>
+        </div>
+        <div class="sheet-body">
+          <form id="reviewForm">
+            <div class="form-group">
+              <input name="workflowDate" type="date" required placeholder=" " />
+              <label class="floating-label">Workflow Date</label>
+            </div>
+            <div class="form-group">
+              <textarea name="keep" rows="3" placeholder=" "></textarea>
+              <label class="floating-label">Keep</label>
+            </div>
+            <div class="form-group">
+              <textarea name="remove" rows="3" placeholder=" "></textarea>
+              <label class="floating-label">Remove</label>
+            </div>
+            <div class="form-group">
+              <textarea name="focus" rows="3" placeholder=" "></textarea>
+              <label class="floating-label">Next Focus</label>
+            </div>
+            <button class="primary-button" type="submit">Save Review</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="sheet-backdrop hidden" id="tradeFormSheet" aria-hidden="true">
+      <div class="sheet-card" role="dialog" aria-modal="true">
+        <div class="sheet-bar"></div>
+        <div class="sheet-header">
+          <div>
+            <p class="eyebrow" id="tradeFormMode">Open trade</p>
+            <h2 id="tradeFormTitle">Start Trade</h2>
+          </div>
+          <button class="ghost-button hidden" type="button" id="cancelEditBtn">Cancel</button>
+          <button class="icon-button sheet-close" type="button" aria-label="Close sheet">✕</button>
+        </div>
+        <div class="sheet-body">
+          <form class="trade-form" id="tradeForm">
+            <input type="hidden" name="id" />
+            
+            <!-- Red News Risk Warning Alert -->
+            <div class="trade-form-news-alert hidden" id="tradeFormNewsAlert">
+              <span class="alert-icon">🔴</span>
+              <div class="alert-text">
+                <strong id="tradeFormNewsTitle">High Impact Red News Event Nearby</strong>
+                <p id="tradeFormNewsMeta">Exercise caution when opening positions around high volatility news releases.</p>
+              </div>
+            </div>
+
+            <!-- Active Context Selection -->
+            <div class="form-row" style="margin-bottom: 12px;">
+              <div class="form-group">
+                <select name="sopId" id="tradeSopSelect" required style="font-weight: 600; background-color: var(--surface-2);"></select>
+                <label class="floating-label">Active SOP (兵法)</label>
+              </div>
+              <div class="form-group">
+                <select name="accountId" id="tradeAccountSelect" required style="font-weight: 600; background-color: var(--surface-2);"></select>
+                <label class="floating-label">Active Account (钱包)</label>
+              </div>
+            </div>
+
+            <!-- Pre-Flight Risk Checklist Gate (开仓前风控检查卡片) -->
+            <div class="pre-flight-card" id="preFlightCard">
+              <div class="pre-flight-header">
+                <div class="pre-flight-title-box">
+                  <span class="pre-flight-icon">🛡️</span>
+                  <div>
+                    <strong>开仓前风控检查 (Pre-Flight Rules)</strong>
+                    <p class="pre-flight-subtitle">核对当前 SOP 注意事项，全部勾选后解锁开仓</p>
+                  </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <button class="ghost-button compact" type="button" onclick="if(window.openSopModal) window.openSopModal(document.getElementById('tradeSopSelect')?.value || state.activeSopId)" style="font-size:11px; padding:2px 8px; border-radius:9999px;" title="修改当前 SOP 的注意事项与规则">⚙️ 修改规则</button>
+                  <span class="preflight-progress-pill" id="preflightProgressPill">0 Rules Checked</span>
+                </div>
+              </div>
+              <div class="preflight-checklist-grid" id="preflightChecklistContainer">
+                <!-- Dynamically populated SOP checklist items -->
+              </div>
+              <div id="preflightRedNewsAlert" class="preflight-news-hud hidden"></div>
+              <div class="preflight-footer-hint" id="preflightHint">
+                ⚠️ 必须打勾确认所有注意事项后，方可开启交易。
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <input name="date" type="date" required placeholder=" " />
+                <label class="floating-label">Date</label>
+              </div>
+              <div class="form-group">
+                <input name="symbol" maxlength="16" required placeholder=" " />
+                <label class="floating-label">Symbol</label>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <input name="openTime" type="datetime-local" required placeholder=" " />
+                <label class="floating-label">Opening Time (开仓时间)</label>
+              </div>
+              <div class="form-group">
+                <input name="closeTime" type="datetime-local" placeholder=" " />
+                <label class="floating-label">Closing Time (平仓时间)</label>
+              </div>
+            </div>
+            <div class="form-group">
+              <select name="setup" id="setupSelect" required></select>
+              <label class="floating-label">Setup</label>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <select name="direction">
+                  <option>Long</option>
+                  <option>Short</option>
+                </select>
+                <label class="floating-label">Direction</label>
+              </div>
+              <div class="form-group">
+                <input name="risk" type="number" min="1" step="1" required placeholder=" " />
+                <label class="floating-label">Risk ($)</label>
+              </div>
+            </div>
+            <div class="form-group">
+              <textarea name="entryPlan" rows="3" placeholder=" "></textarea>
+              <label class="floating-label">Entry Plan</label>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <input name="stopPlan" placeholder=" " />
+                <label class="floating-label">Stop Plan</label>
+              </div>
+              <div class="form-group">
+                <input name="targetPlan" placeholder=" " />
+                <label class="floating-label">Target Plan</label>
+              </div>
+            </div>
+
+            <details class="advanced-fields">
+              <summary>Close or add details</summary>
+              <div class="advanced-content">
+                <div class="form-row">
+                  <div class="form-group">
+                    <select name="grade">
+                      <option>A</option>
+                      <option>B</option>
+                      <option>C</option>
+                    </select>
+                    <label class="floating-label">Grade</label>
+                  </div>
+                  <div class="form-group">
+                    <input name="pnl" type="number" step="1" placeholder=" " />
+                    <label class="floating-label">Net P&L ($)</label>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <input name="maeR" type="number" step="0.1" placeholder=" " />
+                    <label class="floating-label">MAE (Max Adverse R / 逆向浮亏 R)</label>
+                  </div>
+                  <div class="form-group">
+                    <input name="mfeR" type="number" step="0.1" placeholder=" " />
+                    <label class="floating-label">MFE (Max Favorable R / 顺向浮盈 R)</label>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <select name="rule">
+                      <option value="true">🟢 Followed (遵守SOP)</option>
+                      <option value="false">🔴 Violated (违反SOP)</option>
+                      <option value="incomplete">🟠 SOP Incomplete (SOP待完善)</option>
+                    </select>
+                    <label class="floating-label">Rule followed</label>
+                  </div>
+                  <div class="form-group">
+                    <select name="emotion">
+                      <option>Calm</option>
+                      <option>Focused</option>
+                      <option>FOMO</option>
+                      <option>Revenge</option>
+                      <option>Hesitant</option>
+                    </select>
+                    <label class="floating-label">Emotion</label>
+                  </div>
+                </div>
+                <div class="checklist">
+                  <label><input type="checkbox" name="hasPlan" /> <span id="labelHasPlanText">Plan</span></label>
+                  <label><input type="checkbox" name="hasTrigger" /> <span id="labelHasTriggerText">Trigger</span></label>
+                  <label><input type="checkbox" name="hasStop" /> <span id="labelHasStopText">Stop</span></label>
+                  <label><input type="checkbox" name="hasTarget" /> <span id="labelHasTargetText">Target</span></label>
+                  <label><input type="checkbox" name="emotionControlled" /> <span id="labelEmotionControlledText">Controlled</span></label>
+                </div>
+                
+                <!-- P0 Phase 2: Structured Audit -->
+                <fieldset style="border: 1px solid var(--hairline-strong); padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+                  <legend style="color: var(--muted); font-size: 12px; font-weight: bold; padding: 0 4px;">Structured Audit</legend>
+                  <div class="form-row">
+                    <div class="form-group">
+                      <select name="auditCompliance">
+                        <option value="">-- Select --</option>
+                        <option value="fully">Fully followed</option>
+                        <option value="partially">Partially followed</option>
+                        <option value="violated">Violated</option>
+                      </select>
+                      <label class="floating-label">SOP Compliance</label>
+                    </div>
+                    <div class="form-group">
+                      <input type="number" name="auditEmotionScore" min="1" max="10" placeholder=" " />
+                      <label class="floating-label">Emotion Score (1-10)</label>
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group">
+                      <select name="auditStopLoss">
+                        <option value="">-- Select --</option>
+                        <option value="planned_before">Planned before entry</option>
+                        <option value="changed_after">Changed after entry</option>
+                        <option value="none">No Stop Loss</option>
+                      </select>
+                      <label class="floating-label">Stop Loss Audit</label>
+                    </div>
+                    <div class="form-group">
+                      <select name="auditTakeProfit">
+                        <option value="">-- Select --</option>
+                        <option value="planned_before">Planned before entry</option>
+                        <option value="changed_after">Changed after entry</option>
+                        <option value="none">No Take Profit</option>
+                      </select>
+                      <label class="floating-label">Take Profit Audit</label>
+                    </div>
+                  </div>
+                </fieldset>
+
+                <!-- P0 Phase 3: Mistake Taxonomy -->
+                <fieldset style="border: 1px solid var(--hairline-strong); padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+                  <legend style="color: var(--muted); font-size: 12px; font-weight: bold; padding: 0 4px;">Execution Mistakes</legend>
+                  <div class="mistake-checklist" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; font-size: 13px;">
+                    <label><input type="checkbox" name="mistakes" value="FOMO" /> FOMO</label>
+                    <label><input type="checkbox" name="mistakes" value="Revenge Trade" /> Revenge Trade</label>
+                    <label><input type="checkbox" name="mistakes" value="Overtrading" /> Overtrading</label>
+                    <label><input type="checkbox" name="mistakes" value="Late Entry" /> Late Entry</label>
+                    <label><input type="checkbox" name="mistakes" value="Early Entry" /> Early Entry</label>
+                    <label><input type="checkbox" name="mistakes" value="Missed Entry" /> Missed Entry</label>
+                    <label><input type="checkbox" name="mistakes" value="Moved Stop Loss" /> Moved SL</label>
+                    <label><input type="checkbox" name="mistakes" value="Moved Take Profit" /> Moved TP</label>
+                    <label><input type="checkbox" name="mistakes" value="Oversized Risk" /> Oversized Risk</label>
+                    <label><input type="checkbox" name="mistakes" value="Ignored SOP" /> Ignored SOP</label>
+                    <label><input type="checkbox" name="mistakes" value="News Exposure" /> News Exposure</label>
+                    <label><input type="checkbox" name="mistakes" value="Correlated Position" /> Correlated Position</label>
+                    <label><input type="checkbox" name="mistakes" value="Emotional Trade" /> Emotional Trade</label>
+                    <label><input type="checkbox" name="mistakes" value="No Clear Setup" /> No Clear Setup</label>
+                    <label><input type="checkbox" name="mistakes" value="Other" /> Other</label>
+                  </div>
+                </fieldset>
+
+                <div class="form-group">
+                  <input name="tradingViewUrl" type="url" placeholder=" " />
+                  <label class="floating-label">TradingView Link</label>
+                </div>
+                <div class="form-group">
+                  <input name="imageUrl" type="url" placeholder=" " />
+                  <label class="floating-label">Chart Image URL</label>
+                </div>
+                <div class="form-group">
+                  <input name="imageFile" type="file" accept="image/*" multiple placeholder=" " />
+                  <label class="floating-label">Upload Screenshots</label>
+                </div>
+                <label>Exit Note
+                  <div class="markdown-editor-container">
+                    <div class="md-toolbar">
+                      <button type="button" class="md-btn" onclick="insertMarkdown(this, '**', '**')" title="Bold">B</button>
+                      <button type="button" class="md-btn" onclick="insertMarkdown(this, '*', '*')" title="Italic">I</button>
+                      <button type="button" class="md-btn" onclick="insertMarkdown(this, '==', '==')" title="Highlight">Hi</button>
+                      <button type="button" class="md-btn" onclick="insertMarkdown(this, '- ', '')" title="List">•</button>
+                      <button type="button" class="md-btn" onclick="insertMarkdown(this, '> ', '')" title="Quote">"</button>
+                    </div>
+                    <textarea name="exitNote" rows="3" placeholder="Fill after the trade is closed."></textarea>
+                  </div>
+                </label>
+                <label>General Note / Audit Notes
+                  <div class="markdown-editor-container">
+                    <div class="md-toolbar">
+                      <button type="button" class="md-btn" onclick="insertMarkdown(this, '**', '**')" title="Bold">B</button>
+                      <button type="button" class="md-btn" onclick="insertMarkdown(this, '*', '*')" title="Italic">I</button>
+                      <button type="button" class="md-btn" onclick="insertMarkdown(this, '==', '==')" title="Highlight">Hi</button>
+                      <button type="button" class="md-btn" onclick="insertMarkdown(this, '- ', '')" title="List">•</button>
+                      <button type="button" class="md-btn" onclick="insertMarkdown(this, '> ', '')" title="Quote">"</button>
+                    </div>
+                    <textarea name="note" rows="3"></textarea>
+                  </div>
+                </label>
+              </div>
+            </details>
+
+            <button class="primary-button pill-button" type="submit" id="saveTradeBtn">
+              <span class="label-stack">
+                <span class="pill-label">Start Trade</span>
+                <span class="pill-label-hover" aria-hidden="true">Start Trade</span>
+              </span>
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- P0 Phase: THE LONG GAME Modals -->
+    <!-- 1. Event / Guided Reflection Modal -->
+    <div class="sheet-backdrop hidden" id="lgEventModal" role="dialog" aria-modal="true" aria-labelledby="lgEventFormTitle" tabindex="-1">
+      <div class="sheet-card" role="dialog" aria-modal="true">
+        <div class="sheet-header">
+          <h2 id="lgEventTitle">New Event</h2>
+          <button class="icon-button sheet-close" id="closeLgEventModalBtn" type="button" aria-label="Close sheet">✕</button>
+        </div>
+        <div class="sheet-content">
+          <form id="lgEventForm" class="sheet-form">
+            <input type="hidden" name="eventType" id="lgEventType" />
+            <div class="form-row">
+              <label>Event Type
+                <select id="lgEventSelector" name="eventCategory" required>
+                  <!-- Populated dynamically -->
+                </select>
+              </label>
+            </div>
+            <!-- Guided Reflection Questions (Dynamic) -->
+            <div id="lgGuidedReflectionContainer" style="display: flex; flex-direction: column; gap: 16px; margin-top: 8px;">
+              <!-- Questions injected here -->
+            </div>
+            
+            <div style="margin-top: 16px;">
+              <label style="display: block; font-size: 13px; margin-bottom: 6px;">Emotional intensity of this trade (0-5)</label>
+              <div style="display: flex; gap: 12px; align-items: center;" class="emotion-radio-group">
+                <label style="display: flex; gap: 4px; align-items: center; font-weight: normal;"><input type="radio" name="emotionScore" value="0" checked /> 0</label>
+                <label style="display: flex; gap: 4px; align-items: center; font-weight: normal;"><input type="radio" name="emotionScore" value="1" /> 1</label>
+                <label style="display: flex; gap: 4px; align-items: center; font-weight: normal;"><input type="radio" name="emotionScore" value="2" /> 2</label>
+                <label style="display: flex; gap: 4px; align-items: center; font-weight: normal;"><input type="radio" name="emotionScore" value="3" /> 3</label>
+                <label style="display: flex; gap: 4px; align-items: center; font-weight: normal;"><input type="radio" name="emotionScore" value="4" /> 4</label>
+                <label style="display: flex; gap: 4px; align-items: center; font-weight: normal;"><input type="radio" name="emotionScore" value="5" /> 5</label>
+              </div>
+            </div>
+
+            <button class="primary-button pill-button" type="submit" style="margin-top: 16px;">
+              <span class="label-stack">
+                <span class="pill-label">Save Event</span>
+                <span class="pill-label-hover" aria-hidden="true">Save Event</span>
+              </span>
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. System Change Reason Modal -->
+    <div class="sheet-backdrop hidden" id="lgSystemChangeModal" role="dialog" aria-modal="true" aria-labelledby="lgSystemChangeTitle" tabindex="-1">
+      <div class="sheet-card" role="dialog" aria-modal="true">
+        <div class="sheet-header">
+          <h2>Why are you changing this?</h2>
+          <button class="icon-button sheet-close" id="closeLgSystemChangeBtn" type="button" aria-label="Close sheet">✕</button>
+        </div>
+        <div class="sheet-content">
+          <p style="font-size: 14px; color: var(--muted); margin-bottom: 16px;">Record the evidence or reason behind this system modification.</p>
+          <form id="lgSystemChangeForm" class="sheet-form">
+            <label>Reason
+              <select name="changeReason" id="lgChangeReason" required>
+                <option value="" disabled selected>Select a reason...</option>
+                <option value="New Evidence">New Evidence</option>
+                <option value="Execution Problem">Execution Problem</option>
+                <option value="Risk Issue">Risk Issue</option>
+                <option value="Market Condition Changed">Market Condition Changed</option>
+                <option value="Insufficient Sample">Insufficient Sample</option>
+                <option value="Emotional Reaction">Emotional Reaction</option>
+                <option value="Other">Other</option>
+              </select>
+            </label>
+            <div id="lgEmotionalWarning" style="display: none; font-size: 13px; color: var(--red); background: var(--red-soft); padding: 8px 12px; border-radius: 6px; margin-top: 8px; border: 1px solid rgba(217, 74, 69, 0.2);">
+              ⚠️ This change is being made under emotional pressure.
+            </div>
+            <label style="margin-top: 12px;">Notes (Optional)
+              <textarea name="changeNotes" rows="2" placeholder="Briefly explain..."></textarea>
+            </label>
+            <button class="primary-button pill-button" type="submit" style="margin-top: 16px;">Confirm Change</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Season Transition / Mirror Modal -->
+    <div class="sheet-backdrop hidden" id="lgSeasonModal" role="dialog" aria-modal="true" aria-labelledby="lgSeasonTitleId" tabindex="-1">
+      <div class="sheet-card" role="dialog" aria-modal="true">
+        <div class="sheet-header">
+          <h2 id="lgSeasonModalTitle">Current Season</h2>
+          <button class="icon-button sheet-close" id="closeLgSeasonBtn" type="button" aria-label="Close sheet">✕</button>
+        </div>
+        <div class="sheet-content">
+          <!-- Create New Season Form -->
+          <form id="lgSeasonForm" class="sheet-form" style="display: none;">
+            <p style="font-size: 14px; color: var(--muted); margin-bottom: 16px;">Seasons represent the current context of your trading (e.g. BUILD, DRAWDOWN, STABILIZE).</p>
+            <label>Season Name
+              <input type="text" name="seasonName" required placeholder="e.g. STABILIZE" />
+            </label>
+            <label>Context / Focus
+              <textarea name="seasonContext" rows="2" placeholder="What is the factual context right now?"></textarea>
+            </label>
+            <button class="primary-button pill-button" type="submit" style="margin-top: 16px;">Start Season</button>
+          </form>
+
+          <!-- The Mirror Form (End of Season) -->
+          <form id="lgMirrorForm" class="sheet-form" style="display: none;">
+            <div class="eyebrow">The Mirror</div>
+            <h2 style="font-size: 16px; margin-bottom: 8px; color: var(--ink);">Season Complete</h2>
+            
+            <div id="lgMirrorFacts" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px;">
+              <!-- Factual content injected here (WHAT HAPPENED, WHAT CHANGED, WHAT DIDN'T, WHAT REMAINS UNKNOWN) -->
+            </div>
+            
+            <h3 style="font-size: 13px; margin-bottom: 8px; color: var(--muted); text-transform: uppercase; font-weight: 600;">Your Reflection</h3>
+            <textarea name="mirrorReflection" rows="3" required placeholder="What do you think changed?" style="width: 100%; border: 1px solid var(--hairline-strong); border-radius: 8px; padding: 12px; background: var(--bg-input, transparent); resize: vertical;"></textarea>
+            
+            <button class="primary-button pill-button" type="submit" style="margin-top: 16px;">End Season</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. Weekly Review Modal -->
+    <div class="sheet-backdrop hidden" id="lgWeeklyReviewModal" role="dialog" aria-modal="true" aria-labelledby="lgWeeklyReviewTitle" tabindex="-1">
+      <div class="sheet-card" role="dialog" aria-modal="true">
+        <div class="sheet-header">
+          <h2 id="lgWeeklyReviewTitle">Weekly Behavioral Review</h2>
+          <button class="icon-button sheet-close" id="closeLgWeeklyReviewBtn" type="button" aria-label="Close sheet">✕</button>
+        </div>
+        <div class="sheet-content">
+          <div id="lgWeeklySummaryContent" style="margin-bottom: 16px; padding: 12px; background: var(--surface-2); border-radius: 8px; font-size: 13px;">
+            <!-- Injected weekly summary -->
+          </div>
+          <form id="lgWeeklyReviewForm" class="sheet-form">
+            <label>What emotional patterns did I notice this week?
+              <textarea name="q1" rows="2" required></textarea>
+            </label>
+            <label>Which SOP changes helped or hurt my performance?
+              <textarea name="q2" rows="2" required></textarea>
+            </label>
+            <label>What concrete action will I take next week?
+              <textarea name="q3" rows="2" required></textarea>
+            </label>
+            <button class="primary-button pill-button" type="submit" style="margin-top: 16px;">Save Review</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- React Bits Inspired Floating Dock Container -->
+    <div class="dock-outer" id="reactBitsDock"></div>
+    <canvas id="clickSparkCanvas" class="click-spark-canvas"></canvas>
+    <script defer src="audioEngine.js?v=v124"></script>
+    <script defer src="dataEngine.js?v=v124"></script>
+    <script defer src="dock.js?v=v124"></script>
+    <script type="module" src="gallery.js?v=v124"></script>
+    <script defer src="app.js?v=v124"></script>
+    <script defer src="longGameLogic.js"></script>
+    <script defer src="longGameTests.js"></script>
+  </body>
+</html>

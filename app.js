@@ -247,7 +247,7 @@ function defaultState() {
     version: 1,
     schemaVersion: 110,
     preferences: structuredClone(defaultPreferences),
-    trades: starterTrades.map((trade) => normalizeTrade(trade)),
+    trades: [],
     dailyPlans: {
       [todayISO()]: { bias: "Wait for confirmation near key levels.", levels: "Previous high / low, session open", allowedSetups: "Opening Drive, Liquidity Sweep", maxLossR: -2, maxTrades: 3 }
     },

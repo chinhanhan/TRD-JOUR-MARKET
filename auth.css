@@ -379,10 +379,20 @@
   color: #ffffff;
   padding: 40px 20px 80px;
   box-sizing: border-box;
+  position: relative;
+  z-index: 1000;
 }
 
 .landing-overlay.active {
   display: block;
+}
+
+/* Hide internal workspace widgets when guest is viewing Landing Page */
+.landing-overlay.active ~ #reactBitsDock,
+.landing-overlay.active ~ #clickSparkCanvas,
+.landing-overlay.active ~ #dynamicIslandHub,
+.landing-overlay.active ~ #globalNewsBar {
+  display: none !important;
 }
 
 .landing-hero {

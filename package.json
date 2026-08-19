@@ -1,0 +1,19 @@
+{
+  "name": "trd-journey-market",
+  "version": "1.0.0",
+  "description": "TRD Journey SaaS - A Trading Performance Improvement Platform",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx serve -l 5000 .",
+    "dev": "npx serve -l 5000 .",
+    "deploy": "firebase deploy"
+  },
+  "keywords": [
+    "trading",
+    "journal",
+    "saas",
+    "firebase"
+  ],
+  "author": "TRD Journey",
+  "license": "UNLICENSED"
+}

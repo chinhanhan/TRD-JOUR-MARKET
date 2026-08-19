@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TRD Journey</title>
     <link rel="manifest" href="manifest.json" />
-    <link rel="stylesheet" href="styles.css?v=v130" />
-    <link rel="stylesheet" href="auth.css?v=v130" />
+    <link rel="stylesheet" href="styles.css?v=v132" />
+    <link rel="stylesheet" href="auth.css?v=v132" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
   <body>
@@ -210,6 +210,18 @@
           </div>
         </div>
       </header>
+
+      <!-- 3-Day Pro Expiration Quick Renewal Banner -->
+      <div class="renewal-bar-banner" id="headerRenewalNotice" style="display: none; background: linear-gradient(90deg, rgba(255, 159, 10, 0.18), rgba(255, 55, 95, 0.18)); border-bottom: 1px solid rgba(255, 159, 10, 0.35); padding: 8px 16px; align-items: center; justify-content: space-between; font-size: 12px; z-index: 100;">
+        <div style="display: flex; align-items: center; gap: 8px; color: #fff;">
+          <span>⏳</span>
+          <strong id="renewalNoticeDaysText" style="color: #ff9f0a;">Your Pro subscription expires in 3 days.</strong>
+          <span style="color: #d1d1d6;">Renew now to maintain uninterrupted unlimited journaling.</span>
+        </div>
+        <button type="button" onclick="window.TRDAuth.handleQuickRenewWhatsApp()" style="background: #ff9f0a; color: #000; font-weight: 700; border: none; border-radius: 9999px; padding: 4px 14px; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+          ⚡ 1-Tap Renew (RM19) →
+        </button>
+      </div>
 
       <!-- ForexFactory High Impact Top News Bar -->
       <div class="news-bar-banner" id="globalNewsBar">
@@ -1560,9 +1572,10 @@
               </div>
             </div>
             <div class="form-row">
-              <div class="form-group">
-                <input name="openTime" type="datetime-local" required placeholder=" " />
+              <div class="form-group" style="position: relative;">
+                <input name="openTime" type="datetime-local" required placeholder=" " onchange="if(window.updateTradeFormSession) window.updateTradeFormSession(this.value)" />
                 <label class="floating-label">Opening Time (开仓时间)</label>
+                <span id="tradeFormSessionBadge" style="position: absolute; right: 10px; top: 12px; font-size: 10px; background: rgba(10, 132, 255, 0.15); color: #0a84ff; border: 1px solid rgba(10, 132, 255, 0.3); border-radius: 6px; padding: 2px 6px; font-weight: 600; pointer-events: none;">🗽 New York</span>
               </div>
               <div class="form-group">
                 <input name="closeTime" type="datetime-local" placeholder=" " />
@@ -2085,15 +2098,15 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics-compat.js"></script>
-    <script src="firebaseConfig.js?v=v130"></script>
-    <script src="auth.js?v=v130"></script>
-    <script src="cloudSync.js?v=v130"></script>
+    <script src="firebaseConfig.js?v=v132"></script>
+    <script src="auth.js?v=v132"></script>
+    <script src="cloudSync.js?v=v132"></script>
 
-    <script defer src="audioEngine.js?v=v130"></script>
-    <script defer src="dataEngine.js?v=v130"></script>
-    <script defer src="dock.js?v=v130"></script>
-    <script type="module" src="gallery.js?v=v130"></script>
-    <script defer src="app.js?v=v130"></script>
+    <script defer src="audioEngine.js?v=v132"></script>
+    <script defer src="dataEngine.js?v=v132"></script>
+    <script defer src="dock.js?v=v132"></script>
+    <script type="module" src="gallery.js?v=v132"></script>
+    <script defer src="app.js?v=v132"></script>
     <script defer src="longGameLogic.js"></script>
     <script defer src="longGameTests.js"></script>
   </body>

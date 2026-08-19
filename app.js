@@ -507,6 +507,40 @@ function normalizeState(raw) {
   });
 }
 
+function detectTradingSession(datetimeStr) {
+  if (!datetimeStr) return "New York";
+  const d = new Date(datetimeStr);
+  const hours = isNaN(d.getHours()) ? new Date().getHours() : d.getHours();
+  // MYT (UTC+8):
+  // 06:00 - 14:00: Asian Session (亚洲盘)
+  // 14:00 - 20:00: London Session (伦敦盘)
+  // 20:00 - 05:00: New York Session (纽约美盘)
+  if (hours >= 6 && hours < 14) return "Asian";
+  if (hours >= 14 && hours < 20) return "London";
+  return "New York";
+}
+
+window.detectTradingSession = detectTradingSession;
+
+window.updateTradeFormSession = function(timeStr) {
+  const session = detectTradingSession(timeStr);
+  const badge = document.getElementById("tradeFormSessionBadge");
+  if (!badge) return;
+  if (session === "New York") {
+    badge.innerHTML = "🗽 New York";
+    badge.style.background = "rgba(10, 132, 255, 0.15)";
+    badge.style.color = "#0a84ff";
+  } else if (session === "London") {
+    badge.innerHTML = "🇬🇧 London";
+    badge.style.background = "rgba(48, 209, 88, 0.15)";
+    badge.style.color = "#30d158";
+  } else {
+    badge.innerHTML = "🌏 Asian";
+    badge.style.background = "rgba(255, 159, 10, 0.15)";
+    badge.style.color = "#ff9f0a";
+  }
+};
+
 function normalizeTrade(trade) {
   const status = trade.status === "open" ? "open" : "closed";
   const dateVal = trade.date || todayISO();
@@ -524,6 +558,7 @@ function normalizeTrade(trade) {
     closedAt: trade.closedAt || (status === "closed" ? dateVal : ""),
     openTime: openTimeVal,
     closeTime: closeTimeVal,
+    session: trade.session || detectTradingSession(openTimeVal),
     symbol: trade.symbol || defaultPreferences.defaultSymbol,
     setup: trade.setup || defaultPreferences.setups[0],
     direction: trade.direction || "Long",
@@ -1825,6 +1860,9 @@ function renderSopTimeline() {
 
 function timelineCard(trade) {
   const img = imageFor(trade);
+  const session = trade.session || detectTradingSession(trade.openTime);
+  const sessionEmoji = session === "New York" ? "🗽 NY" : (session === "London" ? "🇬🇧 LDN" : "🌏 ASIA");
+
   return `<article class="timeline-card ${trade.status === "open" ? "open" : ""}">
     <div>
       <div class="timeline-card-head">
@@ -1835,6 +1873,7 @@ function timelineCard(trade) {
     </div>
     <div class="timeline-evidence">
       ${img ? `<img class="thumbnail" src="${img}" alt="Chart screenshot" />` : ""}
+      <span class="tag session" style="font-size:10px; font-weight:600; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1);">${sessionEmoji}</span>
       ${trade.tradingViewUrl ? '<span class="tag info">TV</span>' : ""}
       <span class="tag">${safe(trade.grade)}</span>
       ${ruleTag(trade)}

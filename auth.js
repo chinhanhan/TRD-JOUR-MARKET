@@ -265,12 +265,33 @@
       const tradeCount = (window.state && Array.isArray(window.state.trades)) ? window.state.trades.length : 0;
       const limit = AuthState.subscription.limit || 20;
 
+      const renewalBanner = document.getElementById('headerRenewalNotice');
+      const renewalDaysEl = document.getElementById('renewalNoticeDaysText');
+
       if (isPro) {
         quotaBadge.className = 'quota-pill pro';
         quotaBadge.innerHTML = '⭐ Pro Active';
         quotaBadge.title = 'Unlimited Trade Logs';
         quotaBadge.onclick = null;
+
+        // Check if expiring within 3 days
+        if (AuthState.subscription.validUntil && renewalBanner) {
+          const daysLeft = Math.ceil((new Date(AuthState.subscription.validUntil).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+          if (daysLeft <= 3 && daysLeft >= 0) {
+            renewalBanner.style.display = 'flex';
+            if (renewalDaysEl) {
+              renewalDaysEl.textContent = daysLeft === 0 
+                ? 'Your Pro membership expires today.' 
+                : `Your Pro membership expires in ${daysLeft} day${daysLeft > 1 ? 's' : ''}.`;
+            }
+          } else {
+            renewalBanner.style.display = 'none';
+          }
+        } else if (renewalBanner) {
+          renewalBanner.style.display = 'none';
+        }
       } else {
+        if (renewalBanner) renewalBanner.style.display = 'none';
         const isNearLimit = tradeCount >= (limit - 3);
         const isMaxed = tradeCount >= limit;
         quotaBadge.className = `quota-pill free ${isMaxed ? 'maxed' : (isNearLimit ? 'warning' : '')}`;
@@ -278,6 +299,13 @@
         quotaBadge.title = `${tradeCount} of ${limit} free trades used. Click to upgrade.`;
         quotaBadge.onclick = () => this.openUpgradeModal();
       }
+    },
+
+    handleQuickRenewWhatsApp() {
+      const user = this.getUser();
+      const email = user ? user.email : 'Pro Member';
+      const msg = encodeURIComponent(`Hi TRD Journey, I want to renew my Pro Early Bird membership (RM19) via Touch 'n Go / DuitNow QR.\n\nMy Account Email: ${email}`);
+      window.open(`https://wa.me/601126633131?text=${msg}`, '_blank');
     },
 
     renderAnonymousUI() {

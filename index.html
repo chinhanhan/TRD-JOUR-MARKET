@@ -202,6 +202,7 @@
                 <div class="dropdown-user-email" id="dropdownUserEmail">user@example.com</div>
                 <div style="font-size: 12px; color: #30d158; font-weight: 600;" id="dropdownUserPlan">Plan: Free (20 Limit)</div>
                 <button class="dropdown-item-btn" type="button" onclick="window.openModule('settings')">⚙️ Settings & SOPs</button>
+                <button class="dropdown-item-btn" type="button" onclick="if(window.exportJSONBackup) window.exportJSONBackup();">📥 Download Journal Backup (JSON)</button>
                 <button class="dropdown-item-btn open-upgrade-trigger" type="button" style="color: #ff9f0a; font-weight: 600;">⭐ Upgrade to Pro (RM19)</button>
                 <button class="dropdown-item-btn logout" id="authLogoutBtn" type="button">🚪 Sign Out</button>
               </div>
@@ -1510,6 +1511,15 @@
               <div class="alert-text">
                 <strong id="tradeFormNewsTitle">High Impact Red News Event Nearby</strong>
                 <p id="tradeFormNewsMeta">Exercise caution when opening positions around high volatility news releases.</p>
+              </div>
+            </div>
+
+            <!-- Revenge Trading Circuit Breaker Alert (防复仇交易风控熔断) -->
+            <div class="trade-form-news-alert hidden" id="tradeFormRiskAlert" style="background: rgba(255, 69, 58, 0.15); border: 1px solid rgba(255, 69, 58, 0.35); margin-bottom: 12px;">
+              <span class="alert-icon">🛑</span>
+              <div class="alert-text">
+                <strong id="tradeFormRiskTitle" style="color: #ff453a;">Daily Risk Limit Triggered</strong>
+                <p id="tradeFormRiskMeta" style="color: #d1d1d6; margin: 4px 0 0; font-size: 12px;">You have reached today's risk limit (-2R / max trades). Take a deep breath.</p>
               </div>
             </div>
 

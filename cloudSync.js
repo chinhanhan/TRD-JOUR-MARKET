@@ -1,8 +1,10 @@
-// TRD Journey SaaS - High-Resilience Firestore Cloud Sync Engine (1MB Limit Guard & Conflict-Free Merge)
+// TRD Journey SaaS - Real-Time Multi-Device Cloud Sync Engine (Live Snapshot + 1MB Guard + Conflict-Free Merge)
 (function() {
   let activeUid = null;
   let syncDebounceTimer = null;
   let isSyncing = false;
+  let unsubscribeSnapshot = null;
+  let lastPushedTimestamp = null;
 
   // Maximum safe byte size for Firestore document (capped at 750KB to leave safe buffer under 1MB)
   const MAX_SAFE_DOC_BYTES = 750 * 1024;
@@ -11,16 +13,68 @@
     async init(uid) {
       if (!uid || !window.fbDb) return;
       activeUid = uid;
-      console.log("☁️ [TRD CloudSync] Initializing resilient sync for user:", uid);
-      this.updateSyncIndicator("syncing", "Syncing with cloud...");
+      console.log("☁️ [TRD CloudSync] Initializing real-time multi-device sync for user:", uid);
+      this.updateSyncIndicator("syncing", "Connecting live cloud sync...");
+
+      // Clean up previous listeners if any
+      if (unsubscribeSnapshot) {
+        unsubscribeSnapshot();
+        unsubscribeSnapshot = null;
+      }
+
       await this.pullFromCloud();
+      this.listenRealtimeUpdates();
     },
 
     updateSyncIndicator(status, tooltip = "") {
       const dot = document.getElementById("syncStatusDot");
       if (!dot) return;
       dot.className = `status-dot ${status}`;
-      dot.title = tooltip || (status === "online" ? "Cloud Synced" : status);
+      dot.title = tooltip || (status === "online" ? "Cloud Synced ✓" : status);
+    },
+
+    // Real-time live snapshot listener for multi-window / multi-device instant sync
+    listenRealtimeUpdates() {
+      if (!activeUid || !window.fbDb) return;
+      try {
+        const stateDocRef = window.fbDb.collection("users").doc(activeUid).collection("data").doc("state");
+        unsubscribeSnapshot = stateDocRef.onSnapshot((docSnap) => {
+          if (!docSnap.exists) return;
+          const cloudData = docSnap.data();
+          if (!cloudData || typeof cloudData !== "object") return;
+
+          // Prevent infinite echo loop if this update was triggered by our own push
+          if (lastPushedTimestamp && cloudData.updatedAt === lastPushedTimestamp) {
+            return;
+          }
+
+          if (window.state && Array.isArray(cloudData.trades)) {
+            console.log("⚡ [TRD CloudSync] Live multi-device update received.");
+            window.state.trades = this.mergeTradeArrays(window.state.trades, cloudData.trades);
+            if (Array.isArray(cloudData.sops) && cloudData.sops.length > 0) {
+              window.state.sops = cloudData.sops;
+            }
+            if (Array.isArray(cloudData.accounts) && cloudData.accounts.length > 0) {
+              window.state.accounts = cloudData.accounts;
+            }
+            if (cloudData.settings) {
+              window.state.settings = { ...window.state.settings, ...cloudData.settings };
+            }
+
+            if (typeof window.saveState === "function") {
+              window.saveState();
+            }
+            if (typeof window.renderAll === "function") {
+              window.renderAll();
+            }
+            this.updateSyncIndicator("online", "Live Multi-Device Synced ✓");
+          }
+        }, (err) => {
+          console.warn("☁️ [TRD CloudSync] Realtime snapshot warning:", err);
+        });
+      } catch (e) {
+        console.error("☁️ [TRD CloudSync] Listener setup error:", e);
+      }
     },
 
     // Deep merge local trades and cloud trades by id and timestamp (Never loses offline trades)
@@ -69,12 +123,11 @@
 
       console.warn(`⚠️ [TRD CloudSync] Payload size (${Math.round(byteSize / 1024)}KB) exceeds safe threshold. Optimizing old image thumbnails for cloud...`);
 
-      // Optimize: keep images for the 10 most recent trades, strip heavy base64 for older trades in cloud only
+      // Optimize: keep full images for the 10 most recent trades, strip heavy base64 for older trades in cloud only
       // (Full images remain 100% untouched and safe in local IndexedDB)
       if (Array.isArray(cleanState.trades)) {
         cleanState.trades.forEach((trade, index) => {
           if (index < cleanState.trades.length - 10) {
-            // Old trade: strip heavy images in cloud document to prevent 1MB overflow
             if (trade.images && trade.images.length > 0) {
               trade.imagesCloudStripped = true;
               delete trade.images;
@@ -129,7 +182,7 @@
           console.log("☁️ [TRD CloudSync] First cloud sync: pushing existing local state.");
           await this.pushToCloudImmediate();
         }
-        this.updateSyncIndicator("online", "Cloud Synced ✓");
+        this.updateSyncIndicator("online", "Live Cloud Synced ✓");
         if (window.TRDAuth && typeof window.TRDAuth.updateQuotaBadge === "function") {
           window.TRDAuth.updateQuotaBadge();
         }
@@ -155,19 +208,21 @@
       try {
         const stateDocRef = window.fbDb.collection("users").doc(activeUid).collection("data").doc("state");
         const cleanState = this.sanitizeStateForCloud(window.state);
-        cleanState.updatedAt = new Date().toISOString();
+        const timestamp = new Date().toISOString();
+        cleanState.updatedAt = timestamp;
         cleanState.tradeCount = (window.state.trades || []).length;
+        lastPushedTimestamp = timestamp;
 
         await stateDocRef.set(cleanState, { merge: true });
 
         // Update trade count in profile for free tier monitoring
         const profileRef = window.fbDb.collection("users").doc(activeUid);
         await profileRef.set({
-          lastActiveAt: new Date().toISOString(),
+          lastActiveAt: timestamp,
           tradeCount: cleanState.tradeCount
         }, { merge: true });
 
-        this.updateSyncIndicator("online", "Cloud Synced ✓");
+        this.updateSyncIndicator("online", "Live Cloud Synced ✓");
         if (window.TRDAuth && typeof window.TRDAuth.updateQuotaBadge === "function") {
           window.TRDAuth.updateQuotaBadge();
         }

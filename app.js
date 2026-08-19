@@ -3647,6 +3647,29 @@ function openSheet(id) {
     const form = document.getElementById("tradeForm");
     if (form && !form.elements.id.value) {
       renderPreFlightChecklist(state.activeSopId);
+
+      // Check Daily Guardrail Status & Revenge Trading Prevention
+      const today = new Date().toISOString().split("T")[0];
+      const todayTrades = (state.trades || []).filter(t => (t.date === today || (t.openTime && t.openTime.startsWith(today))));
+      let todayR = 0;
+      todayTrades.forEach(t => {
+        if (t.status === "closed") {
+          todayR += (Number(t.pnlR) || 0);
+        }
+      });
+
+      const riskWarningEl = document.getElementById("tradeFormRiskAlert");
+      if (riskWarningEl) {
+        if (todayR <= -2 || todayTrades.length >= 3) {
+          riskWarningEl.classList.remove("hidden");
+          const titleEl = document.getElementById("tradeFormRiskTitle");
+          const metaEl = document.getElementById("tradeFormRiskMeta");
+          if (titleEl) titleEl.textContent = "🛑 Daily Risk Limit Hit (" + todayR.toFixed(1) + "R / " + todayTrades.length + " Trades)";
+          if (metaEl) metaEl.textContent = "Revenge trading detected. Take a 5-minute break and strictly verify all Pre-Flight rules before entry.";
+        } else {
+          riskWarningEl.classList.add("hidden");
+        }
+      }
     }
     if (typeof checkTradeFormNewsRisk === "function") {
       setTimeout(checkTradeFormNewsRisk, 50);

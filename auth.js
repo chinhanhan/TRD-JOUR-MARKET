@@ -606,6 +606,31 @@
         this.openModal('signup');
         return false;
       }
+
+      // Real-time 30-Day Auto-Expiration Check before logging ANY trade
+      if (AuthState.subscription.plan === 'pro' && AuthState.subscription.validUntil) {
+        const expiryTime = new Date(AuthState.subscription.validUntil).getTime();
+        if (Date.now() > expiryTime) {
+          console.log("⏰ Pro subscription expired. Downgrading to Free tier.");
+          AuthState.subscription.plan = 'free';
+          AuthState.subscription.status = 'expired';
+          AuthState.subscription.limit = 20;
+
+          if (window.fbDb && AuthState.currentUser) {
+            window.fbDb.collection('users').doc(AuthState.currentUser.uid).set({
+              subscription: AuthState.subscription
+            }, { merge: true });
+          }
+
+          this.updateQuotaBadge();
+          if (window.toast) {
+            window.toast("⏰ Your 30-day Pro subscription has ended. Please renew to unlock unlimited logging.", "warning");
+          }
+          this.openUpgradeModal();
+          return false;
+        }
+      }
+
       // If Pro member, unlimited
       if (AuthState.subscription.plan === 'pro') return true;
 

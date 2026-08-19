@@ -430,6 +430,21 @@
         feedbackEl.style.color = '#0a84ff';
         feedbackEl.textContent = 'Verifying key & upgrading...';
 
+        // 1. Check if key has already been consumed by another user in Firestore
+        if (window.fbDb) {
+          const keyDocRef = window.fbDb.collection('redeemed_keys').doc(enteredKey);
+          const keyDocSnap = await keyDocRef.get();
+
+          if (keyDocSnap.exists) {
+            const keyData = keyDocSnap.data();
+            if (keyData && keyData.usedBy && keyData.usedBy !== user.uid) {
+              feedbackEl.style.color = '#ff453a';
+              feedbackEl.innerHTML = '⚠️ <strong>This activation code has already been redeemed</strong> by another user. Each code is valid for 1 account only.';
+              return;
+            }
+          }
+        }
+
         const now = new Date();
         const validUntil = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
@@ -444,12 +459,22 @@
         };
 
         if (window.fbDb) {
+          // Atomically mark key as redeemed by this user
+          const keyDocRef = window.fbDb.collection('redeemed_keys').doc(enteredKey);
+          await keyDocRef.set({
+            key: enteredKey,
+            usedBy: user.uid,
+            userEmail: user.email,
+            usedAt: now.toISOString(),
+            validUntil: validUntil
+          }, { merge: true });
+
           const userDocRef = window.fbDb.collection('users').doc(user.uid);
           await userDocRef.set({ subscription: AuthState.subscription }, { merge: true });
         }
 
         feedbackEl.style.color = '#30d158';
-        feedbackEl.innerHTML = '🎉 <strong>PRO Activated Successfully!</strong> Unlimited trades unlocked.';
+        feedbackEl.innerHTML = '🎉 <strong>PRO Activated Successfully!</strong> 30 days unlimited trades unlocked.';
         this.renderAuthenticatedUI(user);
         setTimeout(() => this.closeUpgradeModal(), 2000);
       } catch (e) {

@@ -3,11 +3,14 @@
   let activeUid = null;
   let syncDebounceTimer = null;
   let isSyncing = false;
+  let isApplyingRemoteUpdate = false;
   let unsubscribeSnapshot = null;
   let lastPushedTimestamp = null;
 
   // Maximum safe byte size for Firestore document (capped at 750KB to leave safe buffer under 1MB)
   const MAX_SAFE_DOC_BYTES = 750 * 1024;
+
+  const originalSaveState = window.saveState;
 
   window.TRDCloudSync = {
     async init(uid) {
@@ -38,18 +41,18 @@
       if (!activeUid || !window.fbDb) return;
       try {
         const stateDocRef = window.fbDb.collection("users").doc(activeUid).collection("data").doc("state");
-        unsubscribeSnapshot = stateDocRef.onSnapshot((docSnap) => {
+        unsubscribeSnapshot = stateDocRef.onSnapshot(async (docSnap) => {
           if (!docSnap.exists) return;
           const cloudData = docSnap.data();
           if (!cloudData || typeof cloudData !== "object") return;
 
-          // Prevent infinite echo loop if this update was triggered by our own push
+          // Prevent echo loops: if this was our own push, skip re-applying
           if (lastPushedTimestamp && cloudData.updatedAt === lastPushedTimestamp) {
             return;
           }
 
           if (window.state && Array.isArray(cloudData.trades)) {
-            console.log("⚡ [TRD CloudSync] Live multi-device update received.");
+            console.log("⚡ [TRD CloudSync] Live remote update received from another device.");
             window.state.trades = this.mergeTradeArrays(window.state.trades, cloudData.trades);
             if (Array.isArray(cloudData.sops) && cloudData.sops.length > 0) {
               window.state.sops = cloudData.sops;
@@ -61,9 +64,16 @@
               window.state.settings = { ...window.state.settings, ...cloudData.settings };
             }
 
-            if (typeof window.saveState === "function") {
-              window.saveState();
+            // Save to IndexedDB locally without triggering a push echo back to cloud
+            isApplyingRemoteUpdate = true;
+            try {
+              if (typeof originalSaveState === "function") {
+                await originalSaveState();
+              }
+            } finally {
+              isApplyingRemoteUpdate = false;
             }
+
             if (typeof window.renderAll === "function") {
               window.renderAll();
             }
@@ -92,10 +102,8 @@
       localTrades.forEach(trade => {
         if (trade && trade.id) {
           if (!tradeMap.has(trade.id)) {
-            // New offline trade created locally
             tradeMap.set(trade.id, trade);
           } else {
-            // Preserve local trade if it has full images while cloud had compressed thumb
             const cloudTrade = tradeMap.get(trade.id);
             const localHasImages = Array.isArray(trade.images) && trade.images.length > 0;
             const cloudHasImages = Array.isArray(cloudTrade.images) && cloudTrade.images.length > 0;
@@ -116,15 +124,12 @@
       let jsonString = JSON.stringify(cleanState);
       let byteSize = new Blob([jsonString]).size;
 
-      // If within safe limits (< 750KB), send full payload as is
       if (byteSize <= MAX_SAFE_DOC_BYTES) {
         return cleanState;
       }
 
       console.warn(`⚠️ [TRD CloudSync] Payload size (${Math.round(byteSize / 1024)}KB) exceeds safe threshold. Optimizing old image thumbnails for cloud...`);
 
-      // Optimize: keep full images for the 10 most recent trades, strip heavy base64 for older trades in cloud only
-      // (Full images remain 100% untouched and safe in local IndexedDB)
       if (Array.isArray(cleanState.trades)) {
         cleanState.trades.forEach((trade, index) => {
           if (index < cleanState.trades.length - 10) {
@@ -152,7 +157,6 @@
             console.log("☁️ [TRD CloudSync] Pulled cloud state successfully.");
 
             if (window.state) {
-              // Conflict-Free Trade Merge
               if (Array.isArray(cloudData.trades)) {
                 window.state.trades = this.mergeTradeArrays(window.state.trades, cloudData.trades);
               }
@@ -168,17 +172,22 @@
               if (cloudData.activeSopId) window.state.activeSopId = cloudData.activeSopId;
               if (cloudData.activeAccountId) window.state.activeAccountId = cloudData.activeAccountId;
 
-              // Save locally to IndexedDB
-              if (typeof window.saveState === "function") {
-                await window.saveState();
+              // Save locally to IndexedDB without triggering an outbound push
+              isApplyingRemoteUpdate = true;
+              try {
+                if (typeof originalSaveState === "function") {
+                  await originalSaveState();
+                }
+              } finally {
+                isApplyingRemoteUpdate = false;
               }
+
               if (typeof window.renderAll === "function") {
                 window.renderAll();
               }
             }
           }
         } else {
-          // If no cloud doc yet, push local state as initial backup
           console.log("☁️ [TRD CloudSync] First cloud sync: pushing existing local state.");
           await this.pushToCloudImmediate();
         }
@@ -198,7 +207,7 @@
       this.updateSyncIndicator("syncing", "Saving changes to cloud...");
       syncDebounceTimer = setTimeout(() => {
         this.pushToCloudImmediate();
-      }, 800); // 800ms debounce
+      }, 800);
     },
 
     async pushToCloudImmediate() {
@@ -215,7 +224,6 @@
 
         await stateDocRef.set(cleanState, { merge: true });
 
-        // Update trade count in profile for free tier monitoring
         const profileRef = window.fbDb.collection("users").doc(activeUid);
         await profileRef.set({
           lastActiveAt: timestamp,
@@ -235,15 +243,16 @@
     }
   };
 
-  // Hook into window.saveState
-  const originalSaveState = window.saveState;
-  window.saveState = async function() {
+  // Intercept window.saveState for local user edits only
+  window.saveState = async function(options = {}) {
     let result = true;
     if (typeof originalSaveState === "function") {
       result = await originalSaveState();
     }
-    if (window.TRDCloudSync && typeof window.TRDCloudSync.schedulePush === "function") {
-      window.TRDCloudSync.schedulePush();
+    if (!isApplyingRemoteUpdate && !(options && options.skipCloudPush)) {
+      if (window.TRDCloudSync && typeof window.TRDCloudSync.schedulePush === "function") {
+        window.TRDCloudSync.schedulePush();
+      }
     }
     return result;
   };

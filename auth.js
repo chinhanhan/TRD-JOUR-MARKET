@@ -1,0 +1,305 @@
+// TRD Journey SaaS - Firebase Authentication & Profile Controller
+(function() {
+  const AuthState = {
+    currentUser: null,
+    profile: null,
+    subscription: { plan: 'free', status: 'active', limit: 30 },
+    currentTab: 'signin'
+  };
+
+  window.TRDAuth = {
+    init() {
+      if (!window.fbAuth) {
+        console.warn("⚠️ Firebase Auth not available yet.");
+        return;
+      }
+
+      this.bindDOM();
+      this.listenAuth();
+    },
+
+    bindDOM() {
+      // Auth Modal Openers
+      const openSignInBtns = document.querySelectorAll('.open-signin-trigger');
+      openSignInBtns.forEach(btn => btn.addEventListener('click', () => this.openModal('signin')));
+
+      const openSignUpBtns = document.querySelectorAll('.open-signup-trigger');
+      openSignUpBtns.forEach(btn => btn.addEventListener('click', () => this.openModal('signup')));
+
+      // Close Modal
+      const closeBtn = document.getElementById('authCloseBtn');
+      const backdrop = document.getElementById('authModalBackdrop');
+      if (closeBtn) closeBtn.addEventListener('click', () => this.closeModal());
+      if (backdrop) {
+        backdrop.addEventListener('click', (e) => {
+          if (e.target === backdrop) this.closeModal();
+        });
+      }
+
+      // Tab Switching
+      const tabSignIn = document.getElementById('authTabSignIn');
+      const tabSignUp = document.getElementById('authTabSignUp');
+      if (tabSignIn) tabSignIn.addEventListener('click', () => this.switchTab('signin'));
+      if (tabSignUp) tabSignUp.addEventListener('click', () => this.switchTab('signup'));
+
+      const toForgotBtn = document.getElementById('toForgotPassBtn');
+      if (toForgotBtn) toForgotBtn.addEventListener('click', () => this.switchTab('forgot'));
+
+      const backToSignIn = document.getElementById('backToSignInBtn');
+      if (backToSignIn) backToSignIn.addEventListener('click', () => this.switchTab('signin'));
+
+      // Form Submits
+      const authForm = document.getElementById('authMainForm');
+      if (authForm) authForm.addEventListener('submit', (e) => this.handleAuthSubmit(e));
+
+      // User Profile Dropdown
+      const profileBtn = document.getElementById('userProfileTriggerBtn');
+      const dropdownCard = document.getElementById('userDropdownCard');
+      if (profileBtn && dropdownCard) {
+        profileBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          dropdownCard.classList.toggle('show');
+        });
+        document.addEventListener('click', () => dropdownCard.classList.remove('show'));
+      }
+
+      // Logout
+      const logoutBtn = document.getElementById('authLogoutBtn');
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => this.signOut());
+      }
+    },
+
+    listenAuth() {
+      window.fbAuth.onAuthStateChanged(async (user) => {
+        AuthState.currentUser = user;
+        if (user) {
+          console.log("👤 [TRD Auth] User signed in:", user.email, user.uid);
+          await this.loadUserProfile(user);
+          this.renderAuthenticatedUI(user);
+          this.closeModal();
+          // Initialize cloud trade sync
+          if (window.TRDCloudSync) {
+            window.TRDCloudSync.init(user.uid);
+          }
+        } else {
+          console.log("🚪 [TRD Auth] User signed out.");
+          AuthState.profile = null;
+          this.renderAnonymousUI();
+        }
+      });
+    },
+
+    async loadUserProfile(user) {
+      if (!window.fbDb) return;
+      try {
+        const userDocRef = window.fbDb.collection('users').doc(user.uid);
+        const docSnap = await userDocRef.get();
+        if (docSnap.exists) {
+          AuthState.profile = docSnap.data();
+          if (AuthState.profile.subscription) {
+            AuthState.subscription = AuthState.profile.subscription;
+          }
+        } else {
+          // Initialize new user profile document
+          const initialProfile = {
+            email: user.email,
+            createdAt: new Date().toISOString(),
+            subscription: {
+              plan: 'free',
+              status: 'active',
+              limit: 30,
+              subscribedAt: new Date().toISOString()
+            }
+          };
+          await userDocRef.set(initialProfile, { merge: true });
+          AuthState.profile = initialProfile;
+          AuthState.subscription = initialProfile.subscription;
+        }
+      } catch (err) {
+        console.error("Failed to load user profile:", err);
+      }
+    },
+
+    renderAuthenticatedUI(user) {
+      // Hide Landing Page overlay if active, show App Shell
+      const landingOverlay = document.getElementById('landingPageOverlay');
+      const appShell = document.getElementById('appShell');
+      if (landingOverlay) landingOverlay.classList.remove('active');
+      if (appShell) appShell.style.display = 'flex';
+
+      // Update Header Auth Bar
+      const authAnonSection = document.getElementById('headerAuthAnon');
+      const authUserSection = document.getElementById('headerAuthUser');
+      const userEmailEl = document.getElementById('headerUserEmail');
+      const userAvatarEl = document.getElementById('headerUserAvatar');
+      const userPlanBadge = document.getElementById('headerUserPlanBadge');
+      const dropdownEmail = document.getElementById('dropdownUserEmail');
+      const dropdownPlan = document.getElementById('dropdownUserPlan');
+
+      if (authAnonSection) authAnonSection.style.display = 'none';
+      if (authUserSection) authUserSection.style.display = 'flex';
+
+      const initial = (user.email || 'U').charAt(0).toUpperCase();
+      if (userAvatarEl) userAvatarEl.textContent = initial;
+      if (userEmailEl) userEmailEl.textContent = user.email;
+      if (dropdownEmail) dropdownEmail.textContent = user.email;
+
+      const isPro = AuthState.subscription.plan === 'pro';
+      if (userPlanBadge) {
+        userPlanBadge.className = `user-plan-badge ${isPro ? 'pro' : 'free'}`;
+        userPlanBadge.textContent = isPro ? 'PRO' : 'FREE';
+      }
+      if (dropdownPlan) {
+        dropdownPlan.textContent = isPro ? 'Plan: Pro Member' : 'Plan: Free (30 Limit)';
+      }
+    },
+
+    renderAnonymousUI() {
+      // If user is not logged in, show Landing Page for visitors
+      const landingOverlay = document.getElementById('landingPageOverlay');
+      const appShell = document.getElementById('appShell');
+      const authAnonSection = document.getElementById('headerAuthAnon');
+      const authUserSection = document.getElementById('headerAuthUser');
+
+      if (landingOverlay) landingOverlay.classList.add('active');
+      if (appShell) appShell.style.display = 'none';
+
+      if (authAnonSection) authAnonSection.style.display = 'flex';
+      if (authUserSection) authUserSection.style.display = 'none';
+    },
+
+    openModal(tab = 'signin') {
+      this.switchTab(tab);
+      const modal = document.getElementById('authModalBackdrop');
+      if (modal) modal.classList.add('active');
+      this.clearError();
+    },
+
+    closeModal() {
+      const modal = document.getElementById('authModalBackdrop');
+      if (modal) modal.classList.remove('active');
+    },
+
+    switchTab(tab) {
+      AuthState.currentTab = tab;
+      const tabSignIn = document.getElementById('authTabSignIn');
+      const tabSignUp = document.getElementById('authTabSignUp');
+      const modalTitle = document.getElementById('authModalTitle');
+      const modalSubtitle = document.getElementById('authModalSubtitle');
+      const submitBtn = document.getElementById('authSubmitBtn');
+      const forgotPassRow = document.getElementById('authForgotRow');
+      const backToSignInRow = document.getElementById('authBackSignInRow');
+      const passGroup = document.getElementById('authPasswordGroup');
+
+      if (tab === 'signin') {
+        if (tabSignIn) tabSignIn.classList.add('active');
+        if (tabSignUp) tabSignUp.classList.remove('active');
+        if (modalTitle) modalTitle.textContent = "Welcome Back";
+        if (modalSubtitle) modalSubtitle.textContent = "Sign in to access your cloud journal";
+        if (submitBtn) submitBtn.textContent = "Sign In";
+        if (passGroup) passGroup.style.display = 'block';
+        if (forgotPassRow) forgotPassRow.style.display = 'flex';
+        if (backToSignInRow) backToSignInRow.style.display = 'none';
+      } else if (tab === 'signup') {
+        if (tabSignIn) tabSignIn.classList.remove('active');
+        if (tabSignUp) tabSignUp.classList.add('active');
+        if (modalTitle) modalTitle.textContent = "Start Your Journey";
+        if (modalSubtitle) modalSubtitle.textContent = "Create your free trading performance account";
+        if (submitBtn) submitBtn.textContent = "Create Free Account";
+        if (passGroup) passGroup.style.display = 'block';
+        if (forgotPassRow) forgotPassRow.style.display = 'none';
+        if (backToSignInRow) backToSignInRow.style.display = 'none';
+      } else if (tab === 'forgot') {
+        if (tabSignIn) tabSignIn.classList.remove('active');
+        if (tabSignUp) tabSignUp.classList.remove('active');
+        if (modalTitle) modalTitle.textContent = "Reset Password";
+        if (modalSubtitle) modalSubtitle.textContent = "Enter your email to receive a password reset link";
+        if (submitBtn) submitBtn.textContent = "Send Reset Link";
+        if (passGroup) passGroup.style.display = 'none';
+        if (forgotPassRow) forgotPassRow.style.display = 'none';
+        if (backToSignInRow) backToSignInRow.style.display = 'flex';
+      }
+    },
+
+    async handleAuthSubmit(e) {
+      e.preventDefault();
+      const email = document.getElementById('authEmailInput').value.trim();
+      const password = document.getElementById('authPasswordInput').value;
+      const submitBtn = document.getElementById('authSubmitBtn');
+
+      if (!email) {
+        this.showError("Please enter your email address.");
+        return;
+      }
+
+      this.clearError();
+      submitBtn.disabled = true;
+      const originalText = submitBtn.textContent;
+      submitBtn.textContent = "Processing...";
+
+      try {
+        if (AuthState.currentTab === 'signin') {
+          await window.fbAuth.signInWithEmailAndPassword(email, password);
+        } else if (AuthState.currentTab === 'signup') {
+          if (!password || password.length < 6) {
+            throw new Error("Password must be at least 6 characters.");
+          }
+          await window.fbAuth.createUserWithEmailAndPassword(email, password);
+        } else if (AuthState.currentTab === 'forgot') {
+          await window.fbAuth.sendPasswordResetEmail(email);
+          alert(`Password reset link sent to ${email}. Please check your inbox.`);
+          this.switchTab('signin');
+        }
+      } catch (err) {
+        let msg = err.message;
+        if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+          msg = "Invalid email or password.";
+        } else if (err.code === 'auth/email-already-in-use') {
+          msg = "This email is already registered. Please sign in instead.";
+        }
+        this.showError(msg);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+      }
+    },
+
+    async signOut() {
+      if (!window.fbAuth) return;
+      try {
+        await window.fbAuth.signOut();
+      } catch (err) {
+        console.error("Sign out error:", err);
+      }
+    },
+
+    showError(msg) {
+      const banner = document.getElementById('authErrorBanner');
+      if (banner) {
+        banner.textContent = msg;
+        banner.style.display = 'block';
+      }
+    },
+
+    clearError() {
+      const banner = document.getElementById('authErrorBanner');
+      if (banner) banner.style.display = 'none';
+    },
+
+    getUser() {
+      return AuthState.currentUser;
+    },
+
+    getSubscription() {
+      return AuthState.subscription;
+    }
+  };
+
+  // Auto initialize when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => window.TRDAuth.init());
+  } else {
+    window.TRDAuth.init();
+  }
+})();

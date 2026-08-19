@@ -6,9 +6,105 @@
     <title>TRD Journey</title>
     <link rel="manifest" href="manifest.json" />
     <link rel="stylesheet" href="styles.css?v=v124" />
+    <link rel="stylesheet" href="auth.css?v=v124" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
   <body>
+    <!-- SaaS Public Landing Page (Shown to non-logged-in visitors) -->
+    <div class="landing-overlay" id="landingPageOverlay">
+      <header style="max-width: 1040px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding-bottom: 24px; border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, #0a84ff, #5e5ce6); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; color: #fff;">T</div>
+          <span style="font-weight: 700; font-size: 18px; letter-spacing: -0.5px;">TRD Journey</span>
+        </div>
+        <div style="display: flex; gap: 12px;">
+          <button class="auth-trigger-btn open-signin-trigger" type="button">Sign In</button>
+          <button class="auth-trigger-btn primary open-signup-trigger" type="button">Start Free</button>
+        </div>
+      </header>
+
+      <!-- Hero Section -->
+      <section class="landing-hero">
+        <div class="landing-badge">✨ Built for Serious Retail Traders in Malaysia</div>
+        <h1>Stop Guessing Why You Lose.</h1>
+        <p>A Trading Performance & Behavioral Review Operating System. Track your executions, audit your mistakes, and master your trading discipline.</p>
+        <div class="landing-cta-row">
+          <button class="landing-cta-primary open-signup-trigger" type="button">Start Free — 30 Trades</button>
+          <button class="landing-cta-secondary open-signin-trigger" type="button">Member Sign In →</button>
+        </div>
+      </section>
+
+      <!-- 3 Core Pillars -->
+      <section class="landing-pillars">
+        <div class="pillar-card">
+          <div class="pillar-icon">✍️</div>
+          <h3>Execution Journal</h3>
+          <p>Capture entry, stop, target, R-multiples, and SOP adherence in under 30 seconds. No bloated spreadsheets.</p>
+        </div>
+        <div class="pillar-card">
+          <div class="pillar-icon">🚨</div>
+          <h3>Mistake Breakdown</h3>
+          <p>Tag FOMO, Revenge trades, and moved stops. Discover exactly how much money your broken rules cost you.</p>
+        </div>
+        <div class="pillar-card">
+          <div class="pillar-icon">📈</div>
+          <h3>Behavioral Review</h3>
+          <p>Weekly summaries and live equity curves designed to help you spot psychological leaks before they compound.</p>
+        </div>
+      </section>
+
+      <!-- Transparent Pricing -->
+      <section class="landing-pricing">
+        <h2>Transparent, Trader-Friendly Pricing</h2>
+        <p class="landing-pricing-sub">Less than the cost of one single bad stop-loss.</p>
+
+        <div class="pricing-cards-container">
+          <!-- Free Plan -->
+          <div class="pricing-card">
+            <h3 class="pricing-plan-name">Free Starter</h3>
+            <p class="pricing-plan-desc">Experience the core journal and build your discipline habit.</p>
+            <div class="pricing-price-row">
+              <span class="pricing-currency">RM</span>
+              <span class="pricing-amount">0</span>
+              <span class="pricing-period">/ forever</span>
+            </div>
+            <ul class="pricing-features-list">
+              <li><span class="check">✓</span> Up to 30 Trade Logs</li>
+              <li><span class="check">✓</span> Basic Performance Dashboard</li>
+              <li><span class="check">✓</span> SOP & Rule Follow Tracking</li>
+              <li><span class="check">✓</span> Manual CSV / JSON Export</li>
+            </ul>
+            <button class="pricing-btn free-btn open-signup-trigger" type="button">Get Started Free</button>
+          </div>
+
+          <!-- Early Bird Pro Plan -->
+          <div class="pricing-card featured">
+            <span class="pricing-badge-popular">Early Bird (First 50)</span>
+            <h3 class="pricing-plan-name">Pro Trader</h3>
+            <p class="pricing-plan-desc">Full cloud synchronization and deep mistake attribution analytics.</p>
+            <div class="pricing-price-row">
+              <span class="pricing-currency">RM</span>
+              <span class="pricing-amount">19</span>
+              <span class="pricing-period">/ month</span>
+            </div>
+            <ul class="pricing-features-list">
+              <li><span class="check">✓</span> <strong>Unlimited</strong> Trade Logs</li>
+              <li><span class="check">✓</span> Real-Time <strong>Cloud Sync</strong> (Any Device)</li>
+              <li><span class="check">✓</span> Detailed Mistake & Loss Analysis</li>
+              <li><span class="check">✓</span> Live Equity Curve & Strategy Stats</li>
+              <li><span class="check">✓</span> Weekly & Monthly Review Reports</li>
+              <li><span class="check">✓</span> Priority Local Support</li>
+            </ul>
+            <button class="pricing-btn pro-btn open-signup-trigger" type="button">Join Early Bird Pro</button>
+          </div>
+        </div>
+      </section>
+
+      <footer style="max-width: 1040px; margin: 80px auto 0; text-align: center; font-size: 13px; color: #636366; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 24px;">
+        <p>© 2026 TRD Journey. Built for disciplined trading performance.</p>
+      </footer>
+    </div>
+
     <div class="app-shell" id="appShell">
       <header class="app-header">
         <div class="brand" onclick="window.openModule('landing-gallery')" style="cursor: pointer;" title="Return to Launchpad">
@@ -48,6 +144,30 @@
             </span>
           </button>
           <button class="language-toggle" type="button" aria-label="Switch language">中文</button>
+          
+          <!-- Header Auth Elements -->
+          <div class="header-auth-container" id="headerAuthAnon" style="display: none;">
+            <button class="auth-trigger-btn open-signin-trigger" type="button">Sign In</button>
+            <button class="auth-trigger-btn primary open-signup-trigger" type="button">Start Free</button>
+          </div>
+
+          <div class="header-auth-container" id="headerAuthUser" style="display: none;">
+            <div class="user-profile-menu">
+              <button class="user-profile-btn" id="userProfileTriggerBtn" type="button">
+                <span class="user-avatar" id="headerUserAvatar">U</span>
+                <span class="user-plan-badge free" id="headerUserPlanBadge">FREE</span>
+                <span id="headerUserEmail" style="max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Account</span>
+                <span style="font-size: 10px; opacity: 0.6;">▼</span>
+              </button>
+              <div class="user-dropdown-card" id="userDropdownCard">
+                <div class="dropdown-user-email" id="dropdownUserEmail">user@example.com</div>
+                <div style="font-size: 12px; color: #30d158; font-weight: 600;" id="dropdownUserPlan">Plan: Free (30 Limit)</div>
+                <button class="dropdown-item-btn" type="button" onclick="window.openModule('settings')">⚙️ Settings & SOPs</button>
+                <button class="dropdown-item-btn open-signup-trigger" type="button" style="color: #ff9f0a; font-weight: 600;">⭐ Upgrade to Pro (RM19)</button>
+                <button class="dropdown-item-btn logout" id="authLogoutBtn" type="button">🚪 Sign Out</button>
+              </div>
+            </div>
+          </div>
         </div>
       </header>
 
@@ -1756,6 +1876,49 @@
     <!-- React Bits Inspired Floating Dock Container -->
     <div class="dock-outer" id="reactBitsDock"></div>
     <canvas id="clickSparkCanvas" class="click-spark-canvas"></canvas>
+
+    <!-- SaaS Auth Modal (Apple Frosted Glass) -->
+    <div class="auth-modal-backdrop" id="authModalBackdrop">
+      <div class="auth-card">
+        <button class="auth-close-btn" id="authCloseBtn" type="button" aria-label="Close">✕</button>
+        <div class="auth-header">
+          <div class="auth-brand-badge">T</div>
+          <h3 id="authModalTitle">Welcome to TRD Journey</h3>
+          <p id="authModalSubtitle">Sign in or create your performance journal</p>
+        </div>
+
+        <div class="auth-tabs">
+          <button class="auth-tab active" id="authTabSignIn" type="button">Sign In</button>
+          <button class="auth-tab" id="authTabSignUp" type="button">Create Account</button>
+        </div>
+
+        <div class="auth-error-banner" id="authErrorBanner"></div>
+
+        <form id="authMainForm">
+          <div class="auth-form-group">
+            <label for="authEmailInput">Email Address</label>
+            <input class="auth-input" type="email" id="authEmailInput" required placeholder="trader@example.com" />
+          </div>
+
+          <div class="auth-form-group" id="authPasswordGroup">
+            <label for="authPasswordInput">Password</label>
+            <input class="auth-input" type="password" id="authPasswordInput" required placeholder="••••••••" minlength="6" />
+          </div>
+
+          <button class="auth-submit-btn" id="authSubmitBtn" type="submit">Sign In</button>
+
+          <div class="auth-links" id="authForgotRow">
+            <button class="auth-link" id="toForgotPassBtn" type="button">Forgot password?</button>
+            <span style="color: #636366;">Cloud Secured 🔒</span>
+          </div>
+
+          <div class="auth-links" id="authBackSignInRow" style="display: none; justify-content: center;">
+            <button class="auth-link" id="backToSignInBtn" type="button">← Back to Sign In</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <!-- Firebase Cloud SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -1763,6 +1926,8 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics-compat.js"></script>
     <script src="firebaseConfig.js?v=v124"></script>
+    <script src="auth.js?v=v124"></script>
+    <script src="cloudSync.js?v=v124"></script>
 
     <script defer src="audioEngine.js?v=v124"></script>
     <script defer src="dataEngine.js?v=v124"></script>

@@ -261,6 +261,22 @@
       if (modal) modal.classList.remove('active');
     },
 
+    handleUpgradeClick() {
+      const user = this.getUser();
+      if (!user) {
+        this.closeUpgradeModal();
+        this.openModal('signup');
+        return;
+      }
+      // Demo / Checkout Gateway Trigger
+      const email = user.email;
+      const upgradeMsg = document.getElementById('upgradeSuccessNotice');
+      if (upgradeMsg) {
+        upgradeMsg.style.display = 'block';
+        upgradeMsg.innerHTML = `🎉 <strong>Early Bird Pass (RM 19/mo) Reserved!</strong><br><span style="font-size: 12px; color: #a1a1a6;">We have reserved an early-bird spot for <strong>${email}</strong>. Payment gateway (iPay88 / Cards) checkout will open shortly.</span>`;
+      }
+    },
+
     switchTab(tab) {
       AuthState.currentTab = tab;
       const tabSignIn = document.getElementById('authTabSignIn');

@@ -1946,7 +1946,9 @@
           </ul>
         </div>
 
-        <button class="auth-submit-btn" type="button" style="background: linear-gradient(135deg, #ff9f0a, #ff375f); color: #fff;" onclick="alert('Payment Gateway Integration: Early bird spots will be unlocked via iPay88/Stripe.')">
+        <div id="upgradeSuccessNotice" class="auth-error-banner success" style="display: none; margin-bottom: 16px;"></div>
+
+        <button class="auth-submit-btn" type="button" style="background: linear-gradient(135deg, #ff9f0a, #ff375f); color: #fff;" onclick="window.TRDAuth.handleUpgradeClick()">
           Lock in Early Bird RM19/mo →
         </button>
         <p style="text-align: center; font-size: 11px; color: #8e8e93; margin-top: 10px;">Cancel anytime. No lock-in contracts.</p>

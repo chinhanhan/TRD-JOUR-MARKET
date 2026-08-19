@@ -93,6 +93,18 @@
   color: #ffffff;
 }
 
+.user-plan-badge.pro.lifetime {
+  background: linear-gradient(135deg, #ff9f0a, #ffd60a);
+  color: #000;
+  font-weight: 800;
+}
+
+.quota-pill.pro.lifetime {
+  background: linear-gradient(135deg, rgba(255, 159, 10, 0.25), rgba(255, 214, 10, 0.15));
+  border-color: rgba(255, 159, 10, 0.5);
+  color: #ffd60a;
+}
+
 .user-plan-badge.free {
   background: rgba(255, 255, 255, 0.15);
   color: var(--muted, #8e8e93);
@@ -103,17 +115,23 @@
   top: calc(100% + 8px);
   right: 0;
   width: 240px;
-  background: rgba(28, 28, 30, 0.95);
+  background: var(--paper-strong, rgba(255, 255, 255, 0.96));
   backdrop-filter: blur(25px);
   -webkit-backdrop-filter: blur(25px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid var(--hairline-strong, rgba(0, 0, 0, 0.15));
   border-radius: 14px;
   padding: 12px;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.18);
   z-index: 999;
   display: none;
   flex-direction: column;
   gap: 8px;
+}
+
+[data-theme="dark"] .user-dropdown-card {
+  background: rgba(28, 28, 30, 0.96);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
 }
 
 .user-dropdown-card.show {
@@ -122,29 +140,44 @@
 
 .dropdown-user-email {
   font-size: 12px;
-  color: var(--muted, #8e8e93);
+  color: var(--muted, #6e6e73);
   word-break: break-all;
   padding-bottom: 6px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--hairline, rgba(0, 0, 0, 0.1));
+  font-weight: 500;
+}
+
+[data-theme="dark"] .dropdown-user-email {
+  color: #a1a1a6;
+  border-bottom-color: rgba(255, 255, 255, 0.1);
 }
 
 .dropdown-item-btn {
   background: transparent;
   border: none;
-  color: var(--ink, #ffffff);
+  color: var(--ink, #1d1d1f);
   padding: 8px 10px;
   border-radius: 8px;
   text-align: left;
   font-size: 13px;
+  font-weight: 550;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  transition: background 0.15s ease;
+  transition: all 0.15s ease;
+}
+
+[data-theme="dark"] .dropdown-item-btn {
+  color: #f5f5f7;
 }
 
 .dropdown-item-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="dark"] .dropdown-item-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .dropdown-item-btn.logout {
@@ -299,7 +332,7 @@
   border-radius: 10px;
   padding: 12px 14px;
   color: #fff;
-  font-size: 14px;
+  font-size: 16px;
   outline: none;
   transition: all 0.2s ease;
   box-sizing: border-box;
@@ -541,9 +574,25 @@
 
 .pricing-cards-container {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
   text-align: left;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+@media (max-width: 1100px) {
+  .pricing-cards-container {
+    grid-template-columns: repeat(2, 1fr);
+    max-width: 720px;
+  }
+}
+
+@media (max-width: 640px) {
+  .pricing-cards-container {
+    grid-template-columns: 1fr;
+    max-width: 440px;
+  }
 }
 
 .pricing-card {
@@ -649,6 +698,24 @@
 .pricing-btn.free-btn {
   background: rgba(255, 255, 255, 0.12);
   color: #fff;
+}
+
+.pricing-card.lifetime {
+  background: linear-gradient(180deg, rgba(255, 159, 10, 0.18) 0%, rgba(255, 55, 95, 0.08) 100%);
+  border: 2px solid #ff9f0a;
+  box-shadow: 0 16px 40px rgba(255, 159, 10, 0.35);
+}
+
+.pricing-btn.lifetime-btn {
+  background: linear-gradient(135deg, #ff9f0a, #ff375f);
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 4px 18px rgba(255, 159, 10, 0.4);
+}
+
+.pricing-btn.lifetime-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 26px rgba(255, 159, 10, 0.6);
 }
 
 .pricing-btn.free-btn:hover {

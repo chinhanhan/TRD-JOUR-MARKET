@@ -47,25 +47,26 @@ function renderLongGame() {
   // 2. Render Recent Events
   const eventsFeed = document.getElementById("lgEventsFeed");
   if (lg.events && lg.events.length > 0) {
-    eventsFeed.innerHTML = lg.events.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, window._lgEventsVisibleLimit || 10).map(ev => {
+    eventsFeed.innerHTML = lg.events.slice().sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, window._lgEventsVisibleLimit || 10).map(ev => {
       const isShock = ev.type === "SHOCK";
       const icon = isShock ? "⚡" : "✨";
       const color = isShock ? "var(--orange)" : "var(--green)";
       const bg = isShock ? "var(--orange-soft)" : "var(--green-soft)";
       
+      const safeFn = typeof safe === 'function' ? safe : (typeof window.safe === 'function' ? window.safe : (s => String(s ?? '')));
       return `
         <div style="background: var(--bg-card); border: 1px solid var(--hairline-strong); border-radius: 8px; padding: 12px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
             <div style="display: flex; align-items: center; gap: 8px;">
               <span style="background: ${bg}; color: ${color}; width: 24px; height: 24px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 12px;">${icon}</span>
-              <strong style="font-size: 13px;">${ev.title || ev.type}</strong>
+              <strong style="font-size: 13px;">${safeFn(ev.title || ev.type)}</strong>
             </div>
             <span style="font-size: 11px; color: var(--muted);">${new Date(ev.date).toLocaleDateString()}</span>
           </div>
           <div style="font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 4px;">
-            ${ev.reflection && ev.reflection.q1 ? `<div><strong>What happened:</strong> ${ev.reflection.q1}</div>` : ""}
-            ${ev.reflection && ev.reflection.q2 ? `<div><strong>Under control:</strong> ${ev.reflection.q2}</div>` : ""}
-            ${ev.reflection && ev.reflection.q3 ? `<div><strong>Next time:</strong> ${ev.reflection.q3}</div>` : ""}
+            ${ev.reflection && ev.reflection.q1 ? `<div><strong>What happened:</strong> ${safeFn(ev.reflection.q1)}</div>` : ""}
+            ${ev.reflection && ev.reflection.q2 ? `<div><strong>Under control:</strong> ${safeFn(ev.reflection.q2)}</div>` : ""}
+            ${ev.reflection && ev.reflection.q3 ? `<div><strong>Next time:</strong> ${safeFn(ev.reflection.q3)}</div>` : ""}
           </div>
         </div>
       `;
@@ -83,12 +84,13 @@ function renderLongGame() {
   if (rawJournalFeed) {
     if (lg.rawJournal && lg.rawJournal.length > 0) {
       const limit = window._lgRawVisibleLimit || 5;
-      const sorted = lg.rawJournal.sort((a, b) => new Date(b.date) - new Date(a.date));
+      const sorted = lg.rawJournal.slice().sort((a, b) => new Date(b.date) - new Date(a.date));
+      const safeFn = typeof safe === 'function' ? safe : (typeof window.safe === 'function' ? window.safe : (s => String(s ?? '')));
       rawJournalFeed.innerHTML = sorted.slice(0, limit).map(entry => `
         <div style="background: var(--bg-card); border: 1px solid var(--hairline-strong); border-radius: 8px; padding: 12px; font-size: 13px;">
           <div style="color: var(--muted); font-size: 11px; margin-bottom: 6px;">${new Date(entry.date).toLocaleDateString()}</div>
-          <div style="margin-bottom: 8px; white-space: pre-wrap;">${entry.content}</div>
-          <button class="ghost-button compact" type="button" onclick="window.convertRawToEvent('${entry.id}')" style="font-size: 11px; padding: 2px 8px; border-radius: 9999px;">Convert to Event</button>
+          <div style="margin-bottom: 8px; white-space: pre-wrap;">${safeFn(entry.content)}</div>
+          <button class="ghost-button compact" type="button" onclick="window.convertRawToEvent('${safeFn(entry.id)}')" style="font-size: 11px; padding: 2px 8px; border-radius: 9999px;">Convert to Event</button>
         </div>
       `).join("");
       
@@ -111,22 +113,25 @@ window.openModule = (function(orig) {
 })(window.openModule);
 
 window.createLongGameEvent = function(prefillType = "", prefillText = "") {
-  document.getElementById("lgEventForm").reset();
+  const form = document.getElementById("lgEventForm");
+  if (form) form.reset();
   const selector = document.getElementById("lgEventSelector");
-  selector.innerHTML = `
-    <option value="" disabled selected>Select an event type...</option>
-    <option value="SHOCK">⚡ SHOCK (Process Disrupted)</option>
-    <option value="BREAKTHROUGH">✨ BREAKTHROUGH (Positive Change)</option>
-  `;
-  if (prefillType) {
-    selector.value = prefillType;
-    selector.dispatchEvent(new Event("change"));
+  if (selector) {
+    selector.innerHTML = `
+      <option value="" disabled selected>Select an event type...</option>
+      <option value="SHOCK">⚡ SHOCK (Process Disrupted)</option>
+      <option value="BREAKTHROUGH">✨ BREAKTHROUGH (Positive Change)</option>
+    `;
+    if (prefillType) {
+      selector.value = prefillType;
+      selector.dispatchEvent(new Event("change"));
+    }
   }
   
   // Store prefillText to be injected after the form fields are generated
   window._lgPrefillText = prefillText;
   
-  openSheet("lgEventModal");
+  if (typeof openSheet === "function") openSheet("lgEventModal");
 };
 
 window.convertRawToEvent = function(rawId) {
@@ -240,6 +245,7 @@ document.getElementById("lgEventForm")?.addEventListener("submit", async (e) => 
 
 window.saveLgRawJournal = async function() {
   const input = document.getElementById("lgRawJournalInput");
+  if (!input) return;
   const content = input.value.trim();
   if (!content) return;
   

@@ -32,6 +32,7 @@ class AppleAudioEngine {
 
   play(type) {
     if (!this.enabled) return;
+    if (window.state?.preferences?.enableSounds === false) return;
     this.initCtx();
     if (!this.ctx) return;
 
@@ -153,6 +154,24 @@ class AppleAudioEngine {
 
         osc.start(now);
         osc.stop(now + 0.04);
+      }
+      else if (type === 'delete' || type === 'alert') {
+        // Deep cautionary sound
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(260, now);
+        osc.frequency.exponentialRampToValueAtTime(130, now + 0.12);
+
+        gain.gain.setValueAtTime(0.06, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.12);
       }
     } catch (e) {
       console.warn('AudioEngine play error:', e);

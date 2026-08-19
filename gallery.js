@@ -451,6 +451,9 @@ class VisionOSBentoLauncher {
   }
   
   onKeyDown(e) {
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) {
+      return;
+    }
     const landing = document.getElementById('landing-gallery');
     if (!landing || !landing.classList.contains('active')) return;
     

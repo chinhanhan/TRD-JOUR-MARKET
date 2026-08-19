@@ -173,6 +173,12 @@ class TRDDataEngine {
   }
 
   exportCSV() {
+    if (window.TRDAuth && window.TRDAuth.getSubscription && window.TRDAuth.getSubscription().plan !== 'pro') {
+      window.TRDAuth.openUpgradeModal();
+      if (window.toast) window.toast("⭐ CSV Trade Data Export is a PRO feature. Upgrade to export.", "warning");
+      return;
+    }
+
     const trades = this.getTrades();
     if (!trades.length) {
       alert("No trade records found to export.");
@@ -221,6 +227,12 @@ class TRDDataEngine {
   }
 
   generateReport() {
+    if (window.TRDAuth && window.TRDAuth.getSubscription && window.TRDAuth.getSubscription().plan !== 'pro') {
+      window.TRDAuth.openUpgradeModal();
+      if (window.toast) window.toast("⭐ Monthly Executive PDF Report is a PRO feature. Upgrade to export.", "warning");
+      return;
+    }
+
     const trades = this.getTrades();
     const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
 
@@ -228,9 +240,14 @@ class TRDDataEngine {
     const wins = trades.filter(t => t.pnl > 0).length;
     const winRate = totalTrades ? Math.round((wins / totalTrades) * 100) : 0;
     const totalR = trades.reduce((acc, t) => acc + (t.pnl && t.risk ? t.pnl / t.risk : 0), 0);
+    const followedRulesCount = trades.filter(t => t.rule === true || t.ruleFollowed === true || (!t.ruleStatus || t.ruleStatus === "followed")).length;
+    const complianceRate = totalTrades ? Math.round((followedRulesCount / totalTrades) * 100) : 100;
 
     const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+    if (!printWindow) {
+      alert("⚠️ Pop-up was blocked by your browser. Please allow pop-ups for this site to view and print your Monthly Report.");
+      return;
+    }
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -277,7 +294,7 @@ class TRDDataEngine {
           </div>
           <div class="metric-card">
             <div class="metric-label">Disciplined Rule Compliance</div>
-            <div class="metric-val">100%</div>
+            <div class="metric-val">${complianceRate}%</div>
           </div>
         </div>
 

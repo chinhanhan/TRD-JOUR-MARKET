@@ -160,6 +160,21 @@ class ReactBitsDockEngine {
       }
     });
   }
+
+  updateDockLanguage(lang) {
+    const labels = {
+      en: { overview: 'Today', journal: 'Journal', missions: 'Missions', review: 'Review', simulation: 'Simulation', settings: 'System' },
+      zh: { overview: '今日', journal: '记录', missions: '任务', review: '复盘', simulation: '沙盒', settings: '系统' }
+    };
+    const currentMap = labels[lang] || labels.en;
+    this.items.forEach((item, idx) => {
+      if (currentMap[item.module]) {
+        item.label = currentMap[item.module];
+        const labelEl = this.container.querySelector(`[data-dock-index="${idx}"] .dock-label`);
+        if (labelEl) labelEl.textContent = item.label;
+      }
+    });
+  }
 }
 
 // Instantiate immediately and on DOM load

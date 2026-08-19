@@ -1,13 +1,19 @@
-const CACHE_NAME = 'trd-journey-v110-dimensions-1-to-5-mobile-touch-target-scatter-enhancement';
+const CACHE_NAME = 'trd-journey-v182-saas-edition';
 const ASSETS = [
   './',
   './index.html',
-  './styles.css?v=v110-dimensions-1-to-5-mobile-touch-target-scatter-enhancement',
-  './audioEngine.js?v=v110-dimensions-1-to-5-mobile-touch-target-scatter-enhancement',
-  './dataEngine.js?v=v110-dimensions-1-to-5-mobile-touch-target-scatter-enhancement',
-  './dock.js?v=v110-dimensions-1-to-5-mobile-touch-target-scatter-enhancement',
-  './gallery.js?v=v110-dimensions-1-to-5-mobile-touch-target-scatter-enhancement',
-  './app.js?v=v110-dimensions-1-to-5-mobile-touch-target-scatter-enhancement',
+  './styles.css',
+  './auth.css',
+  './firebaseConfig.js',
+  './auth.js',
+  './cloudSync.js',
+  './audioEngine.js',
+  './dataEngine.js',
+  './dock.js',
+  './gallery.js',
+  './app.js',
+  './longGameLogic.js',
+  './longGameTests.js',
   './manifest.json'
 ];
 

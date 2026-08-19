@@ -60,9 +60,34 @@
             if (Array.isArray(cloudData.accounts) && cloudData.accounts.length > 0) {
               window.state.accounts = cloudData.accounts;
             }
-            if (cloudData.settings) {
-              window.state.settings = { ...window.state.settings, ...cloudData.settings };
+            if (cloudData.preferences) {
+              window.state.preferences = { ...window.state.preferences, ...cloudData.preferences };
+            } else if (cloudData.settings) {
+              window.state.preferences = { ...window.state.preferences, ...cloudData.settings };
             }
+            if (cloudData.dailyPlans) {
+              window.state.dailyPlans = { ...window.state.dailyPlans, ...cloudData.dailyPlans };
+            }
+            if (cloudData.dailyReviews) {
+              window.state.dailyReviews = { ...window.state.dailyReviews, ...cloudData.dailyReviews };
+            }
+            if (cloudData.reflections) {
+              window.state.reflections = { ...window.state.reflections, ...cloudData.reflections };
+            }
+            if (cloudData.playbook) {
+              window.state.playbook = { ...window.state.playbook, ...cloudData.playbook };
+            }
+            if (cloudData.longGame) {
+              window.state.longGame = { ...window.state.longGame, ...cloudData.longGame };
+            }
+            if (cloudData.experience) {
+              window.state.experience = { ...window.state.experience, ...cloudData.experience };
+            }
+            if (Array.isArray(cloudData.backtests)) {
+              window.state.backtests = cloudData.backtests;
+            }
+            if (cloudData.activeSopId) window.state.activeSopId = cloudData.activeSopId;
+            if (cloudData.activeAccountId) window.state.activeAccountId = cloudData.activeAccountId;
 
             // Save to IndexedDB locally without triggering a push echo back to cloud
             isApplyingRemoteUpdate = true;
@@ -76,6 +101,9 @@
 
             if (typeof window.renderAll === "function") {
               window.renderAll();
+            }
+            if (window.TRDAuth && typeof window.TRDAuth.updateQuotaBadge === "function") {
+              window.TRDAuth.updateQuotaBadge();
             }
             this.updateSyncIndicator("online", "Live Multi-Device Synced ✓");
           }
@@ -110,12 +138,20 @@
 
             if (localHasImages && !cloudHasImages) {
               tradeMap.set(trade.id, { ...cloudTrade, ...trade });
+            } else if (trade.updatedAt && cloudTrade.updatedAt) {
+              if (new Date(trade.updatedAt).getTime() > new Date(cloudTrade.updatedAt).getTime()) {
+                tradeMap.set(trade.id, { ...cloudTrade, ...trade });
+              }
             }
           }
         }
       });
 
-      return Array.from(tradeMap.values());
+      return Array.from(tradeMap.values()).sort((a, b) => {
+        const timeA = new Date(a.openTime || a.date || 0).getTime();
+        const timeB = new Date(b.openTime || b.date || 0).getTime();
+        return timeB - timeA;
+      });
     },
 
     // Compresses & strips heavy old image blobs for cloud payload if nearing 1MB limit
@@ -166,8 +202,31 @@
               if (Array.isArray(cloudData.accounts) && cloudData.accounts.length > 0) {
                 window.state.accounts = cloudData.accounts;
               }
-              if (cloudData.settings) {
-                window.state.settings = { ...window.state.settings, ...cloudData.settings };
+              if (cloudData.preferences) {
+                window.state.preferences = { ...window.state.preferences, ...cloudData.preferences };
+              } else if (cloudData.settings) {
+                window.state.preferences = { ...window.state.preferences, ...cloudData.settings };
+              }
+              if (cloudData.dailyPlans) {
+                window.state.dailyPlans = { ...window.state.dailyPlans, ...cloudData.dailyPlans };
+              }
+              if (cloudData.dailyReviews) {
+                window.state.dailyReviews = { ...window.state.dailyReviews, ...cloudData.dailyReviews };
+              }
+              if (cloudData.reflections) {
+                window.state.reflections = { ...window.state.reflections, ...cloudData.reflections };
+              }
+              if (cloudData.playbook) {
+                window.state.playbook = { ...window.state.playbook, ...cloudData.playbook };
+              }
+              if (cloudData.longGame) {
+                window.state.longGame = { ...window.state.longGame, ...cloudData.longGame };
+              }
+              if (cloudData.experience) {
+                window.state.experience = { ...window.state.experience, ...cloudData.experience };
+              }
+              if (Array.isArray(cloudData.backtests)) {
+                window.state.backtests = cloudData.backtests;
               }
               if (cloudData.activeSopId) window.state.activeSopId = cloudData.activeSopId;
               if (cloudData.activeAccountId) window.state.activeAccountId = cloudData.activeAccountId;

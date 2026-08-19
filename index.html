@@ -5,8 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TRD Journey</title>
     <link rel="manifest" href="manifest.json" />
-    <link rel="stylesheet" href="styles.css?v=v132" />
-    <link rel="stylesheet" href="auth.css?v=v132" />
+    <link rel="stylesheet" href="styles.css?v=189" />
+    <link rel="stylesheet" href="3d-gallery.css?v=189" />
+    <link rel="stylesheet" href="dock.css?v=189" />
+    <link rel="stylesheet" href="auth.css?v=189" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
   <body>
@@ -59,10 +61,10 @@
         <p class="landing-pricing-sub">Less than the cost of one single bad stop-loss.</p>
 
         <div class="pricing-cards-container">
-          <!-- Free Plan -->
+          <!-- 1. Free Plan -->
           <div class="pricing-card">
             <h3 class="pricing-plan-name">Free Starter</h3>
-            <p class="pricing-plan-desc">Experience the core journal and build your discipline habit.</p>
+            <p class="pricing-plan-desc">Experience core journaling and build execution discipline.</p>
             <div class="pricing-price-row">
               <span class="pricing-currency">RM</span>
               <span class="pricing-amount">0</span>
@@ -70,18 +72,18 @@
             </div>
             <ul class="pricing-features-list">
               <li><span class="check">✓</span> Up to 20 Trade Logs</li>
-              <li><span class="check">✓</span> Basic Performance Dashboard</li>
+              <li><span class="check">✓</span> Single Account (Demo / Live)</li>
+              <li><span class="check">✓</span> 1 Chart Screenshot per Trade</li>
               <li><span class="check">✓</span> SOP & Rule Follow Tracking</li>
-              <li><span class="check">✓</span> Manual CSV / JSON Export</li>
+              <li><span class="check">✓</span> Full JSON / CSV Data Export</li>
             </ul>
             <button class="pricing-btn free-btn open-signup-trigger" type="button">Get Started Free</button>
           </div>
 
-          <!-- Early Bird Pro Plan -->
-          <div class="pricing-card featured">
-            <span class="pricing-badge-popular">Early Bird (First 50)</span>
-            <h3 class="pricing-plan-name">Pro Trader</h3>
-            <p class="pricing-plan-desc">Full cloud synchronization and deep mistake attribution analytics.</p>
+          <!-- 2. Monthly Plan -->
+          <div class="pricing-card">
+            <h3 class="pricing-plan-name">Monthly Pro</h3>
+            <p class="pricing-plan-desc">Low-risk flexible trial. Cancel or pause anytime.</p>
             <div class="pricing-price-row">
               <span class="pricing-currency">RM</span>
               <span class="pricing-amount">19</span>
@@ -90,12 +92,51 @@
             <ul class="pricing-features-list">
               <li><span class="check">✓</span> <strong>Unlimited</strong> Trade Logs</li>
               <li><span class="check">✓</span> Real-Time <strong>Cloud Sync</strong> (Any Device)</li>
-              <li><span class="check">✓</span> Detailed Mistake & Loss Analysis</li>
-              <li><span class="check">✓</span> Live Equity Curve & Strategy Stats</li>
-              <li><span class="check">✓</span> Weekly & Monthly Review Reports</li>
-              <li><span class="check">✓</span> Priority Local Support</li>
+              <li><span class="check">✓</span> 4-Chart Multi-Timeframe Lightbox</li>
+              <li><span class="check">✓</span> Mistake Tagging & Loss Attribution</li>
+              <li><span class="check">✓</span> Flexible Subscription · Cancel Anytime</li>
             </ul>
-            <button class="pricing-btn pro-btn" type="button" onclick="window.TRDAuth.startProUpgradeIntent()">Join Early Bird Pro</button>
+            <button class="pricing-btn pro-btn" type="button" onclick="window.TRDAuth.startProUpgradeIntent('monthly')">Join Monthly (RM 19/mo)</button>
+          </div>
+
+          <!-- 3. Annual Master Plan -->
+          <div class="pricing-card featured">
+            <span class="pricing-badge-popular" style="background: #0a84ff;">SAVE 30% · BEST VALUE</span>
+            <h3 class="pricing-plan-name">Annual Pro</h3>
+            <p class="pricing-plan-desc">For serious traders & prop firm candidates. (Or RM49/qtr)</p>
+            <div class="pricing-price-row">
+              <span class="pricing-currency">RM</span>
+              <span class="pricing-amount">159</span>
+              <span class="pricing-period">/ year (RM13.25/mo)</span>
+            </div>
+            <ul class="pricing-features-list">
+              <li><span class="check">✓</span> <strong>Everything in Monthly Pro</strong></li>
+              <li><span class="check">✓</span> Multi-Account Isolation (FTMO/Live/Demo)</li>
+              <li><span class="check">✓</span> -2R Risk Guardrail Lockout (Tilt Shield)</li>
+              <li><span class="check">✓</span> 500-Run Monte Carlo Ruin Simulation</li>
+              <li><span class="check">✓</span> Monthly Executive PDF Review Reports</li>
+            </ul>
+            <button class="pricing-btn pro-btn" style="background: #0a84ff;" type="button" onclick="window.TRDAuth.startProUpgradeIntent('yearly')">Lock in Annual Pro (RM 159/yr)</button>
+          </div>
+
+          <!-- 4. Founder Lifetime Pass -->
+          <div class="pricing-card lifetime">
+            <span class="pricing-badge-popular" style="background: linear-gradient(135deg, #ff9f0a, #ff375f);">🔥 LIMITED 100 SEATS</span>
+            <h3 class="pricing-plan-name" style="color: #ff9f0a;">👑 Founder Lifetime</h3>
+            <p class="pricing-plan-desc">Pay once, own forever. Zero recurring subscriptions.</p>
+            <div class="pricing-price-row">
+              <span class="pricing-currency" style="color: #ffd60a;">RM</span>
+              <span class="pricing-amount" style="color: #ff9f0a;">199</span>
+              <span class="pricing-period" style="color: #ffd60a; font-weight: 600;">/ one-time (lifetime)</span>
+            </div>
+            <ul class="pricing-features-list">
+              <li><span class="check">✓</span> <strong>All PRO Features Included Forever</strong></li>
+              <li><span class="check">✓</span> <strong>0 Recurring Fees (Lifetime Free Updates)</strong></li>
+              <li><span class="check">✓</span> <strong>👑 Lifetime Founder Gold Badge & VIP Pass</strong></li>
+              <li><span class="check">✓</span> Multi-Account + Deep Edge Diagnostics</li>
+              <li><span class="check">✓</span> Priority 1-on-1 Founder WhatsApp Direct Line</li>
+            </ul>
+            <button class="pricing-btn lifetime-btn" type="button" onclick="window.TRDAuth.startProUpgradeIntent('lifetime')">🔥 Claim Founder Lifetime (RM 199)</button>
           </div>
         </div>
       </section>
@@ -122,7 +163,7 @@
 
           <details style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 14px; padding: 16px 20px; cursor: pointer;">
             <summary style="font-weight: 700; font-size: 15px; color: #ffffff;">📊 What happens when I reach the 20-trade free limit?</summary>
-            <p style="margin: 10px 0 0; font-size: 13.5px; color: #a1a1a6; line-height: 1.6;">Your 20 recorded trades remain safely accessible forever. To log trade #21 and unlock unlimited real-time cloud sync, deep mistake attribution, and weekly behavioral reports, you can upgrade to Pro for just RM 19/month.</p>
+            <p style="margin: 10px 0 0; font-size: 13.5px; color: #a1a1a6; line-height: 1.6;">Your 20 recorded trades remain safely accessible forever. To log trade #21 and unlock unlimited real-time cloud sync, deep mistake attribution, and multi-account tracking, you can upgrade to Pro for RM 19/month (or RM 159/year), or claim the 👑 <strong>Founder Lifetime Pass for RM 199</strong> (one-time purchase, never pay again).</p>
           </details>
         </div>
       </section>
@@ -157,7 +198,7 @@
           <span id="guardrailMeta">Max trades: 3</span>
         </div>
         <div class="header-actions">
-          <button class="theme-toggle-btn" id="headerThemeToggleBtn" type="button" aria-label="Switch theme">
+          <button class="theme-toggle-btn" id="headerThemeToggleBtn" type="button" aria-label="Switch theme" onclick="window.switchTheme && window.switchTheme()">
             <svg class="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="12" r="5"></circle>
               <line x1="12" y1="1" x2="12" y2="3"></line>
@@ -172,16 +213,14 @@
             <svg class="theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
             </svg>
-          <button class="ghost-button news-trigger-btn" id="headerNewsBtn" type="button" title="ForexFactory Red Calendar">
-            🔴 Red News
           </button>
-          <button class="primary-button module-action pill-button" id="headerLogTradeBtn" type="button">
+          <button class="primary-button module-action pill-button" id="headerLogTradeBtn" type="button" onclick="window.openTradeCapture && window.openTradeCapture()">
             <span class="label-stack">
               <span class="pill-label">Log Trade</span>
               <span class="pill-label-hover" aria-hidden="true">Log Trade</span>
             </span>
           </button>
-          <button class="language-toggle" type="button" aria-label="Switch language">中文</button>
+          <button class="language-toggle" id="headerLangToggleBtn" type="button" aria-label="Switch language" onclick="window.switchLanguage && window.switchLanguage()">中文</button>
           
           <!-- Header Auth Elements -->
           <div class="header-auth-container" id="headerAuthAnon" style="display: none;">
@@ -203,7 +242,7 @@
                 <div style="font-size: 12px; color: #30d158; font-weight: 600;" id="dropdownUserPlan">Plan: Free (20 Limit)</div>
                 <button class="dropdown-item-btn" type="button" onclick="window.openModule('settings')">⚙️ Settings & SOPs</button>
                 <button class="dropdown-item-btn" type="button" onclick="if(window.exportJSONBackup) window.exportJSONBackup();">📥 Download Journal Backup (JSON)</button>
-                <button class="dropdown-item-btn open-upgrade-trigger" type="button" style="color: #ff9f0a; font-weight: 600;">⭐ Upgrade to Pro (RM19)</button>
+                <button class="dropdown-item-btn open-upgrade-trigger" type="button" style="color: #ff9f0a; font-weight: 600;">⭐ Upgrade to Pro / Lifetime</button>
                 <button class="dropdown-item-btn logout" id="authLogoutBtn" type="button">🚪 Sign Out</button>
               </div>
             </div>
@@ -221,15 +260,6 @@
         <button type="button" onclick="window.TRDAuth.handleQuickRenewWhatsApp()" style="background: #ff9f0a; color: #000; font-weight: 700; border: none; border-radius: 9999px; padding: 4px 14px; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
           ⚡ 1-Tap Renew (RM19) →
         </button>
-      </div>
-
-      <!-- ForexFactory High Impact Top News Bar -->
-      <div class="news-bar-banner" id="globalNewsBar">
-        <div class="news-bar-content" id="newsBarContent">
-          <span class="news-bar-badge">🔴 High Impact</span>
-          <span class="news-bar-countdown" id="newsBarCountdown">Loading ForexFactory Red Folder...</span>
-        </div>
-        <button class="news-bar-action" id="newsBarViewBtn" type="button">View Calendar</button>
       </div>
 
       <main class="main">
@@ -366,21 +396,6 @@
                   </div>
                 </div>
 
-                <!-- Today's High-Impact Red Folder News Widget -->
-                <div class="bento-news-card" id="homeRedNewsWidget">
-                  <div class="bento-news-header">
-                    <div>
-                      <span class="bento-news-badge">🔴 High Impact</span>
-                      <h3 style="margin-top:4px;">Today's Red Folder News (今日红盒快讯)</h3>
-                    </div>
-                    <button class="ghost-button news-trigger-btn" type="button" onclick="window.openRedNewsModal()">
-                      Full Calendar ↗
-                    </button>
-                  </div>
-                  <div class="bento-news-body" id="homeRedNewsBody">
-                    <!-- Populated dynamically by app.js -->
-                  </div>
-                </div>
               </div>
             </div>
             
@@ -439,7 +454,7 @@
             <section class="panel today-open-panel">
               <div class="panel-head">
                 <div><p class="eyebrow">Open Trades</p><h2>Live execution</h2></div>
-                <button class="ghost-button" type="button" data-view-shortcut="journal">Start Trade</button>
+                <button class="ghost-button" type="button" data-open-capture onclick="window.openTradeCapture && window.openTradeCapture()">Start Trade</button>
               </div>
               <div class="mobile-cards always" id="todayOpenTradeCards"></div>
             </section>
@@ -730,7 +745,7 @@
                   <span style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;">Workspace Context:</span>
                   <select id="activeSopSelect" aria-label="Active SOP"></select>
                   <select id="accountFilterSelect" aria-label="Active account"></select>
-                  <button class="primary-button" type="button" data-open-capture>Start Trade</button>
+                  <button class="primary-button" type="button" data-open-capture onclick="window.openTradeCapture && window.openTradeCapture()">Start Trade</button>
                 </div>
               </div>
 
@@ -827,12 +842,12 @@
 
           <section class="view" id="review" data-title="Review" data-kicker="Evidence">
             <div class="segment-control" aria-label="Review sections">
-              <button class="segment active" data-review-panel="insights" type="button">Insights</button>
-              <button class="segment" data-review-panel="simulation" type="button">🎲 Simulation</button>
-              <button class="segment" data-review-panel="charts" type="button">Charts</button>
-              <button class="segment" data-review-panel="calendar" type="button">Calendar</button>
-              <button class="segment" data-review-panel="playbook" type="button">Playbook</button>
-              <button class="segment" data-review-panel="reflections" type="button">Reflections</button>
+              <button class="segment active" data-review-panel="insights" onclick="window.switchReviewPanel('insights')" type="button">Insights</button>
+              <button class="segment" data-review-panel="simulation" onclick="window.switchReviewPanel('simulation')" type="button">🎲 Simulation</button>
+              <button class="segment" data-review-panel="charts" onclick="window.switchReviewPanel('charts')" type="button">Charts</button>
+              <button class="segment" data-review-panel="calendar" onclick="window.switchReviewPanel('calendar')" type="button">Calendar</button>
+              <button class="segment" data-review-panel="playbook" onclick="window.switchReviewPanel('playbook')" type="button">Playbook</button>
+              <button class="segment" data-review-panel="reflections" onclick="window.switchReviewPanel('reflections')" type="button">Reflections</button>
             </div>
 
             <div class="review-panel active" id="review-insights">
@@ -1311,7 +1326,7 @@
                 <h3 class="sm-socials-title">Quick Actions</h3>
                 <ul class="sm-socials-list" role="list">
                   <li class="sm-socials-item">
-                    <a href="#" onclick="if(window.openSheet) window.openSheet('tradeFormSheet'); return false;" class="sm-socials-link">+ Log Trade</a>
+                    <a href="#" onclick="if(window.openTradeCapture) window.openTradeCapture(); else if(window.openSheet) window.openSheet('tradeFormSheet'); return false;" class="sm-socials-link">+ Log Trade</a>
                   </li>
                   <li class="sm-socials-item">
                     <a href="#" onclick="if(window.openSopModal) window.openSopModal(); return false;" class="sm-socials-link">SOP Rules</a>
@@ -1338,71 +1353,6 @@
           <button class="icon-button sheet-close" type="button" aria-label="Close sheet">✕</button>
         </div>
         <div class="sheet-body" id="detailSheetBody"></div>
-      </div>
-    </div>
-
-    <!-- ForexFactory High-Impact Red News Calendar Modal -->
-    <div class="sheet-backdrop hidden" id="redNewsModal" aria-hidden="true">
-      <div class="sheet-card news-modal-card" role="dialog" aria-modal="true">
-        <div class="sheet-bar"></div>
-        <div class="sheet-header">
-          <div>
-            <p class="eyebrow" style="color:#ef4444; font-weight:700;">🔴 ForexFactory High Impact</p>
-            <h2>Economic Calendar (红盒财经日历)</h2>
-          </div>
-          <div style="display:flex; align-items:center; gap:8px;">
-            <button id="ffSyncBtn" onclick="window.syncFFNews(true)" class="ghost-button" type="button" style="font-size:0.78rem; padding:5px 12px; min-height:auto;">🔄 Sync Now</button>
-            <button class="icon-button sheet-close" id="closeRedNewsModalBtn" type="button" aria-label="Close sheet">✕</button>
-          </div>
-        </div>
-        <div id="ffSyncStatus" style="font-size:0.76rem; color:var(--muted); padding:6px 20px 0; min-height:18px;"></div>
-        <div class="sheet-body">
-          <div class="news-currency-filters" id="newsCurrencyFilters">
-            <button class="filter-chip active" data-currency="All">All Currencies</button>
-            <button class="filter-chip" data-currency="USD">🇺🇸 USD</button>
-            <button class="filter-chip" data-currency="AUD">🇦🇺 AUD</button>
-            <button class="filter-chip" data-currency="EUR">🇪🇺 EUR</button>
-            <button class="filter-chip" data-currency="GBP">🇬🇧 GBP</button>
-            <button class="filter-chip" data-currency="JPY">🇯🇵 JPY</button>
-            <button class="filter-chip" data-currency="CAD">🇨🇦 CAD</button>
-          </div>
-          <!-- Add Event Form -->
-          <form id="redNewsAddForm" onsubmit="window.submitRedNewsEvent(event)" style="background:var(--paper); border:1px solid var(--hairline); border-radius:12px; padding:14px 16px; margin-bottom:14px; display:flex; flex-wrap:wrap; gap:8px; align-items:flex-end;">
-            <div style="font-size:0.78rem; font-weight:700; color:var(--muted); width:100%; margin-bottom:2px;">
-              ➕ Add Red Folder Event from 
-              <a href="https://www.forexfactory.com/calendar" target="_blank" rel="noreferrer" style="color:var(--blue);">ForexFactory</a>
-            </div>
-            <input id="rnDate" type="date" required style="flex:1; min-width:120px;" />
-            <input id="rnTime" type="time" required placeholder="HH:MM" style="flex:0.6; min-width:90px;" />
-            <select id="rnCurrency" style="flex:0.6; min-width:80px;">
-              <option>USD</option><option>AUD</option><option>EUR</option><option>GBP</option><option>JPY</option><option>CAD</option><option>CHF</option><option>NZD</option><option>CNY</option>
-            </select>
-            <input id="rnTitle" type="text" required placeholder="Event title (e.g. NFP)" style="flex:2; min-width:150px;" />
-            <input id="rnForecast" type="text" placeholder="Forecast" style="flex:0.7; min-width:80px;" />
-            <input id="rnPrevious" type="text" placeholder="Previous" style="flex:0.7; min-width:80px;" />
-            <button type="submit" class="primary-button" style="min-height:36px; padding:0 14px; font-size:0.82rem;">Add</button>
-          </form>
-          <div style="display:flex; justify-content:flex-end; margin-bottom:8px;">
-            <button onclick="window.clearPastNews()" class="ghost-button" style="font-size:0.75rem; padding:4px 12px; min-height:auto; color:var(--muted);">🗑 Clear past events</button>
-          </div>
-          <div class="table-wrap news-table-wrap">
-            <table class="news-table" id="redNewsTable">
-              <thead>
-                <tr>
-                  <th>Date &amp; Time</th>
-                  <th>Currency</th>
-                  <th>Impact</th>
-                  <th>Event Title</th>
-                  <th>Actual</th>
-                  <th>Forecast</th>
-                  <th>Previous</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody id="redNewsTableBody"></tbody>
-            </table>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -1517,15 +1467,6 @@
           <form class="trade-form" id="tradeForm">
             <input type="hidden" name="id" />
             
-            <!-- Red News Risk Warning Alert -->
-            <div class="trade-form-news-alert hidden" id="tradeFormNewsAlert">
-              <span class="alert-icon">🔴</span>
-              <div class="alert-text">
-                <strong id="tradeFormNewsTitle">High Impact Red News Event Nearby</strong>
-                <p id="tradeFormNewsMeta">Exercise caution when opening positions around high volatility news releases.</p>
-              </div>
-            </div>
-
             <!-- Active Context Selection -->
             <div class="form-row" style="margin-bottom: 12px;">
               <div class="form-group">
@@ -1549,14 +1490,14 @@
                   </div>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
-                  <button class="ghost-button compact" type="button" onclick="if(window.openSopModal) window.openSopModal(document.getElementById('tradeSopSelect')?.value || state.activeSopId)" style="font-size:11px; padding:2px 8px; border-radius:9999px;" title="修改当前 SOP 的注意事项与规则">⚙️ 修改规则</button>
+                  <button class="ghost-button compact" type="button" onclick="window.verifyAllPreflight && window.verifyAllPreflight()" style="font-size:11px; padding:3px 10px; border-radius:9999px; background:var(--blue-soft); color:var(--blue); font-weight:700; border:1px solid rgba(0, 113, 227, 0.2);" title="一键勾选当前所有开仓注意事项">⚡ 一键确认</button>
+                  <button class="ghost-button compact" type="button" onclick="if(window.openSopModal) window.openSopModal(document.getElementById('tradeSopSelect')?.value || state.activeSopId)" style="font-size:11px; padding:3px 8px; border-radius:9999px;" title="修改当前 SOP 的注意事项与规则">⚙️ 规则</button>
                   <span class="preflight-progress-pill" id="preflightProgressPill">0 Rules Checked</span>
                 </div>
               </div>
               <div class="preflight-checklist-grid" id="preflightChecklistContainer">
                 <!-- Dynamically populated SOP checklist items -->
               </div>
-              <div id="preflightRedNewsAlert" class="preflight-news-hud hidden"></div>
               <div class="preflight-footer-hint" id="preflightHint">
                 ⚠️ 必须打勾确认所有注意事项后，方可开启交易。
               </div>
@@ -1572,19 +1513,29 @@
               </div>
             </div>
             <div class="form-row">
-              <div class="form-group" style="position: relative;">
-                <input name="openTime" type="datetime-local" required placeholder=" " onchange="if(window.updateTradeFormSession) window.updateTradeFormSession(this.value)" />
+              <div class="form-group">
+                <input name="openTime" type="datetime-local" required placeholder=" " />
                 <label class="floating-label">Opening Time (开仓时间)</label>
-                <span id="tradeFormSessionBadge" style="position: absolute; right: 10px; top: 12px; font-size: 10px; background: rgba(10, 132, 255, 0.15); color: #0a84ff; border: 1px solid rgba(10, 132, 255, 0.3); border-radius: 6px; padding: 2px 6px; font-weight: 600; pointer-events: none;">🗽 New York</span>
               </div>
               <div class="form-group">
                 <input name="closeTime" type="datetime-local" placeholder=" " />
                 <label class="floating-label">Closing Time (平仓时间)</label>
               </div>
             </div>
-            <div class="form-group">
-              <select name="setup" id="setupSelect" required></select>
-              <label class="floating-label">Setup</label>
+            <div class="form-row">
+              <div class="form-group">
+                <select name="session" id="tradeSessionSelect" required>
+                  <option value="New York" selected>🗽 New York (纽约盘)</option>
+                  <option value="London">🇬🇧 London (伦敦盘)</option>
+                  <option value="Asian">🌏 Asian (亚洲盘)</option>
+                  <option value="Custom">⚡ Other / Custom (其他时段)</option>
+                </select>
+                <label class="floating-label">Trading Session (交易时区/盘口)</label>
+              </div>
+              <div class="form-group">
+                <select name="setup" id="setupSelect" required></select>
+                <label class="floating-label">Setup</label>
+              </div>
             </div>
             <div class="form-row">
               <div class="form-group">
@@ -1977,21 +1928,21 @@
 
     <!-- SaaS Pro Upgrade Modal (Dual Channel: Stripe + Touch 'n Go / DuitNow) -->
     <div class="auth-modal-backdrop" id="upgradeModalBackdrop">
-      <div class="auth-card" style="max-width: 490px;">
+      <div class="auth-card" style="width: 94%; max-width: 560px; max-height: 90vh; overflow-y: auto;">
         <button class="auth-close-btn" id="upgradeCloseBtn" type="button" aria-label="Close">✕</button>
         <div class="auth-header">
           <div class="auth-brand-badge" style="background: linear-gradient(135deg, #ff9f0a, #ff375f);">⭐</div>
           <h3>Upgrade to Pro Trader</h3>
-          <p>Unlimited cloud performance journaling & mistake audit analytics</p>
+          <p>Unlimited cloud performance journaling & edge audit analytics</p>
         </div>
 
         <!-- Value Review Discipline Report Card (专属价值回顾成绩单) -->
-        <div id="upgradeReportCardSection" style="background: linear-gradient(135deg, rgba(255, 159, 10, 0.12), rgba(255, 55, 95, 0.12)); border: 1px solid rgba(255, 159, 10, 0.3); border-radius: 14px; padding: 14px 16px; margin-bottom: 16px;">
+        <div id="upgradeReportCardSection" style="background: linear-gradient(135deg, rgba(255, 159, 10, 0.12), rgba(255, 55, 95, 0.12)); border: 1px solid rgba(255, 159, 10, 0.3); border-radius: 14px; padding: 14px 16px; margin-bottom: 14px;">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
             <span style="font-size: 13px; font-weight: 700; color: #ff9f0a; display: flex; align-items: center; gap: 6px;">
               🏆 Your Journaling Progress
             </span>
-            <span style="font-size: 11px; background: rgba(255, 159, 10, 0.2); color: #ff9f0a; padding: 2px 8px; border-radius: 9999px; font-weight: 600;">20-Trade Limit</span>
+            <span style="font-size: 11px; background: rgba(255, 159, 10, 0.2); color: #ff9f0a; padding: 2px 8px; border-radius: 9999px; font-weight: 600;">20-Trade Cap</span>
           </div>
           <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; background: rgba(0, 0, 0, 0.25); padding: 10px 8px; border-radius: 10px; margin-bottom: 10px;">
             <div>
@@ -2008,12 +1959,92 @@
             </div>
           </div>
           <p style="margin: 0; font-size: 11.5px; color: #d1d1d6; line-height: 1.45; text-align: center;">
-            🌟 <em>"You have built a disciplined trading foundation. Unlock Pro (only <strong>RM 0.60/day</strong>) to maintain your flow."</em>
+            🌟 <em>"You have hit the 20-trade free capacity. Unlock PRO (only <strong>RM 0.60/day</strong>) to continue logging and find your profitable edge."</em>
           </p>
         </div>
 
+        <!-- Free vs Pro Full Feature Comparison Table -->
+        <div class="pro-compare-table-wrapper">
+          <table class="pro-compare-table">
+            <thead>
+              <tr>
+                <th class="feat-col">Feature Comparison</th>
+                <th class="free-col">🟢 Free Starter</th>
+                <th class="pro-col">⭐ Pro / Lifetime</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="feat-col">Trade Journal Capacity</td>
+                <td class="free-col">20 Trades (Capped)</td>
+                <td class="pro-col">⭐ Unlimited Trades (No Cap)</td>
+              </tr>
+              <tr>
+                <td class="feat-col">Account Management</td>
+                <td class="free-col">1 Account Only</td>
+                <td class="pro-col">⭐ Multi-Account (FTMO / Real / Demo)</td>
+              </tr>
+              <tr>
+                <td class="feat-col">Chart Screenshots</td>
+                <td class="free-col">1 Image per Trade</td>
+                <td class="pro-col">⭐ 4-Chart Multi-Timeframe Lightbox</td>
+              </tr>
+              <tr>
+                <td class="feat-col">Edge & Mistake Audit</td>
+                <td class="free-col">Basic P&L Stats</td>
+                <td class="pro-col">⭐ Loss Attribution + Session Heatmap + Monte Carlo</td>
+              </tr>
+              <tr>
+                <td class="feat-col">Tilt & Risk Guardrails</td>
+                <td class="free-col">Text Warning Only</td>
+                <td class="pro-col">⭐ -2R Daily Lockout (Revenge Shield)</td>
+              </tr>
+              <tr>
+                <td class="feat-col">Sync & PDF Reports</td>
+                <td class="free-col">Local Cache Only</td>
+                <td class="pro-col">⭐ Instant Cloud Sync + Executive PDF Reports</td>
+              </tr>
+              <tr>
+                <td class="feat-col">Pricing</td>
+                <td class="free-col">RM 0 Free Forever</td>
+                <td class="pro-col">🔥 RM 199 Lifetime (or RM19/mo, RM49/3mo, RM159/yr)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 4-Tier Plan Selector Cards -->
+        <div class="saas-pricing-tiers four-cols">
+          <div class="pricing-tier-card" id="pricingTierMonthly" onclick="window.TRDAuth.selectUpgradeTier('monthly')">
+            <div class="pricing-tier-name">Monthly</div>
+            <div class="pricing-tier-price">RM 19 <small>/mo</small></div>
+            <div class="pricing-tier-desc">Flexible Trial</div>
+          </div>
+
+          <div class="pricing-tier-card" id="pricingTierQuarterly" onclick="window.TRDAuth.selectUpgradeTier('quarterly')">
+            <span class="pricing-tier-badge" style="background:#30d158; color:#000;">SAVE 15%</span>
+            <div class="pricing-tier-name">Quarterly</div>
+            <div class="pricing-tier-price">RM 49 <small>/3mo</small></div>
+            <div class="pricing-tier-desc">RM 16.33/mo</div>
+          </div>
+
+          <div class="pricing-tier-card" id="pricingTierYearly" onclick="window.TRDAuth.selectUpgradeTier('yearly')">
+            <span class="pricing-tier-badge" style="background:#0a84ff;">SAVE 30%</span>
+            <div class="pricing-tier-name">Annual Pro</div>
+            <div class="pricing-tier-price">RM 159 <small>/yr</small></div>
+            <div class="pricing-tier-desc">RM 13.25/mo</div>
+          </div>
+
+          <div class="pricing-tier-card lifetime active" id="pricingTierLifetime" onclick="window.TRDAuth.selectUpgradeTier('lifetime')">
+            <span class="pricing-tier-badge">🔥 LIMITED 100</span>
+            <div class="pricing-tier-name" style="color:#ff9f0a;">👑 Lifetime</div>
+            <div class="pricing-tier-price" style="color:#ff9f0a;">RM 199 <small style="color:#ffd60a;">/once</small></div>
+            <div class="pricing-tier-desc" style="color:#ffd60a; font-weight:600;">One-Time Buyout</div>
+          </div>
+        </div>
+
         <!-- Payment Method Tabs -->
-        <div class="auth-tabs" style="margin-bottom: 16px;">
+        <div class="auth-tabs" style="margin-bottom: 14px;">
           <button class="auth-tab active" id="upgradeTabStripe" type="button" onclick="window.TRDAuth.switchUpgradeTab('stripe')">💳 Card / Apple Pay</button>
           <button class="auth-tab" id="upgradeTabTng" type="button" onclick="window.TRDAuth.switchUpgradeTab('tng')">📱 Touch 'n Go / QR</button>
         </div>
@@ -2022,22 +2053,23 @@
         <div id="upgradeStripeSection">
           <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 14px; padding: 16px; margin-bottom: 18px;">
             <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px;">
-              <span style="font-size: 15px; font-weight: 700; color: #fff;">Early Bird Pro (First 50)</span>
+              <span id="upgradeStripePlanTitle" style="font-size: 15px; font-weight: 700; color: #fff;">👑 Founder Lifetime Pass (Limited 100 Seats)</span>
               <div>
-                <span style="font-size: 24px; font-weight: 800; color: #ff9f0a;">RM 19</span>
-                <span style="font-size: 12px; color: #8e8e93;"> / month</span>
+                <span id="upgradeStripePlanPrice" style="font-size: 24px; font-weight: 800; color: #ff9f0a;">RM 199</span>
+                <span id="upgradeStripePlanPriceUnit" style="font-size: 12px; color: #8e8e93;"> One-Time Buyout</span>
               </div>
             </div>
             <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 7px; font-size: 13px; color: #d1d1d6;">
               <li><span style="color: #30d158; font-weight: bold;">✓</span> <strong>Unlimited</strong> Trade Logs (No 20-trade cap)</li>
               <li><span style="color: #30d158; font-weight: bold;">✓</span> Cross-Device Real-Time Cloud Sync</li>
-              <li><span style="color: #30d158; font-weight: bold;">✓</span> Mistake Attribution & Loss Analysis</li>
-              <li><span style="color: #30d158; font-weight: bold;">✓</span> Weekly & Monthly Behavioral Reports</li>
+              <li><span style="color: #30d158; font-weight: bold;">✓</span> Mistake Attribution & Loss Diagnostics</li>
+              <li><span style="color: #30d158; font-weight: bold;">✓</span> Multi-Account Management (Prop/Real/Demo)</li>
+              <li><span style="color: #30d158; font-weight: bold;">✓</span> All Future PRO Upgrades Included Forever</li>
             </ul>
           </div>
 
           <button class="auth-submit-btn" id="upgradeSubmitBtn" type="button" style="background: linear-gradient(135deg, #ff9f0a, #ff375f); color: #fff;" onclick="window.TRDAuth.handleUpgradeClick()">
-            Lock in Early Bird RM19/mo →
+            🔥 Claim Founder Lifetime RM199 (One-Time) →
           </button>
           <div style="margin-top: 10px; font-size: 11px; color: #8e8e93; text-align: center; line-height: 1.4;">
             🔒 Powered by <strong>Stripe</strong> (Visa, Mastercard, Apple Pay, Debit Cards)<br>
@@ -2048,12 +2080,12 @@
         <!-- Channel 2: Touch 'n Go & DuitNow QR -->
         <div id="upgradeTngSection" style="display: none;">
           <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 14px; padding: 18px; text-align: center; margin-bottom: 16px;">
-            <div style="font-size: 13px; color: #0a84ff; font-weight: 700; margin-bottom: 8px;">DuitNow QR / Touch 'n Go eWallet</div>
-            <div style="font-size: 26px; font-weight: 800; color: #fff; margin-bottom: 12px;">RM 19.00</div>
+            <div id="upgradeTngPlanName" style="font-size: 13px; color: #0a84ff; font-weight: 700; margin-bottom: 8px;">👑 Founder Lifetime (RM 199 One-Time Buyout)</div>
+            <div id="upgradeTngPrice" style="font-size: 26px; font-weight: 800; color: #ff9f0a; margin-bottom: 12px;">RM 199.00</div>
             
             <!-- QR Box -->
             <div style="background: #ffffff; padding: 8px; border-radius: 14px; display: inline-block; box-shadow: 0 10px 30px rgba(0,0,0,0.4); margin-bottom: 12px; max-width: 210px;">
-              <img src="assets/tng_duitnow_qr.png?v=v125" alt="TRD Journey Touch 'n Go DuitNow QR" style="width: 100%; height: auto; display: block; border-radius: 8px;" />
+              <img src="assets/tng_duitnow_qr.png?v=v147" alt="TRD Journey Touch 'n Go DuitNow QR" style="width: 100%; height: auto; display: block; border-radius: 8px;" />
             </div>
 
             <p style="font-size: 12px; color: #a1a1a6; margin: 0; line-height: 1.4;">
@@ -2062,8 +2094,8 @@
             </p>
           </div>
 
-          <button class="auth-submit-btn" type="button" style="background: #0070ba; color: #fff;" onclick="window.TRDAuth.handleTngWhatsAppClick()">
-            📲 WhatsApp Receipt to Activate PRO →
+          <button class="auth-submit-btn" id="upgradeTngWhatsAppBtn" type="button" style="background: #0070ba; color: #fff;" onclick="window.TRDAuth.handleTngWhatsAppClick()">
+            🔥 WhatsApp Receipt (RM 199 Founder Lifetime) →
           </button>
           <p style="text-align: center; font-size: 11px; color: #8e8e93; margin-top: 8px;">Fast manual approval within 5 minutes.</p>
         </div>
@@ -2075,7 +2107,7 @@
           </div>
           <div id="redeemInputBox" style="display: none; margin-top: 10px;">
             <div style="display: flex; gap: 8px;">
-              <input type="text" id="redeemKeyInput" placeholder="e.g. TRD-PRO-VIP" style="flex: 1; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: #fff; padding: 8px 12px; font-size: 13px; text-transform: uppercase;" />
+              <input type="text" id="redeemKeyInput" placeholder="e.g. TRD-PRO-VIP" style="flex: 1; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: #fff; padding: 10px 12px; font-size: 15px; text-transform: uppercase;" />
               <button type="button" onclick="window.TRDAuth.handleRedeemKey()" style="background: #30d158; color: #000; font-weight: 700; border: none; border-radius: 8px; padding: 0 16px; font-size: 13px; cursor: pointer;">Activate</button>
             </div>
             <div id="redeemFeedbackMsg" style="font-size: 11px; margin-top: 6px; display: none;"></div>
@@ -2098,15 +2130,15 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics-compat.js"></script>
-    <script src="firebaseConfig.js?v=v132"></script>
-    <script src="auth.js?v=v132"></script>
-    <script src="cloudSync.js?v=v132"></script>
+    <script src="firebaseConfig.js?v=v189"></script>
+    <script src="auth.js?v=v189"></script>
+    <script src="cloudSync.js?v=v189"></script>
 
-    <script defer src="audioEngine.js?v=v132"></script>
-    <script defer src="dataEngine.js?v=v132"></script>
-    <script defer src="dock.js?v=v132"></script>
-    <script type="module" src="gallery.js?v=v132"></script>
-    <script defer src="app.js?v=v132"></script>
+    <script defer src="audioEngine.js?v=v189"></script>
+    <script defer src="dataEngine.js?v=v189"></script>
+    <script defer src="dock.js?v=v189"></script>
+    <script type="module" src="gallery.js?v=v189"></script>
+    <script defer src="app.js?v=v189"></script>
     <script defer src="longGameLogic.js"></script>
     <script defer src="longGameTests.js"></script>
   </body>

@@ -46,6 +46,7 @@ const money = (value) => {
 };
 const uid = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const safe = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[c]);
+window.safe = safe;
 
 function parseMarkdown(text) {
   if (!text) return "";
@@ -558,7 +559,7 @@ function normalizeTrade(trade) {
     closedAt: trade.closedAt || (status === "closed" ? dateVal : ""),
     openTime: openTimeVal,
     closeTime: closeTimeVal,
-    session: trade.session || detectTradingSession(openTimeVal),
+    session: trade.session || "New York",
     symbol: trade.symbol || defaultPreferences.defaultSymbol,
     setup: trade.setup || defaultPreferences.setups[0],
     direction: trade.direction || "Long",
@@ -665,47 +666,19 @@ function ensureSopState(rawState) {
   };
 }
 
-async function saveState() {
+async function saveState(options = {}) {
   try {
     await idbSet(STORAGE_KEY, JSON.parse(JSON.stringify(state)));
+    if (!options.skipCloud && window.TRDCloudSync && typeof window.TRDCloudSync.schedulePush === "function") {
+      window.TRDCloudSync.schedulePush();
+    }
     return true;
   } catch (e) {
     console.error("IDB save failed", e);
     return false;
   }
 }
-
-// ── Red News Management ─────────────────────────────────────────────────────
-function addRedNewsEvent(evt) {
-  if (!state.redNews) state.redNews = [];
-  const entry = {
-    id: uid(),
-    date: evt.date || todayISO(),
-    time: evt.time || "00:00",
-    currency: (evt.currency || "USD").toUpperCase(),
-    title: evt.title || "News Event",
-    impact: "red",
-    forecast: evt.forecast || "",
-    previous: evt.previous || "",
-    actual: evt.actual || ""
-  };
-  state.redNews.push(entry);
-  saveState();
-  return entry;
-}
-
-function deleteRedNewsEvent(id) {
-  if (!state.redNews) return;
-  state.redNews = state.redNews.filter(e => e.id !== id);
-  saveState();
-}
-
-function clearPastRedNewsEvents() {
-  if (!state.redNews) return;
-  const cutoff = todayISO();
-  state.redNews = state.redNews.filter(e => e.date >= cutoff);
-  saveState();
-}
+window.saveState = saveState;
 
 function activeSop() {
   return state.sops.find((sop) => sop.id === state.activeSopId && !sop.archivedAt) || state.sops.filter(s => !s.archivedAt)[0];
@@ -723,6 +696,10 @@ function visibleTrades() {
   const sopId = state.activeSopId || activeSop()?.id;
   const accountId = state.activeAccountId || activeAccount()?.id;
   return state.trades.filter((trade) => trade.sopId === sopId && (!accountId || trade.accountId === accountId));
+}
+
+function getActiveAccountTrades() {
+  return visibleTrades();
 }
 
 function activeSopTrades() {
@@ -1233,7 +1210,6 @@ function renderAll() {
   initCollapsiblePanels();
   updateWorkflowTiles();
   renderActivityRings();
-  initNewsBar();
 
   // Phase 9 Mindfulness & Reward System
   updateRewardMission();
@@ -1262,7 +1238,7 @@ function renderHomeSummary() {
   const weekTrades = tradesInRange(weekStart, weekEnd);
   const week = metrics(weekTrades);
   const all = metrics();
-  const planReady = Boolean(state.dailyPlans[todayISO()]);
+  const planReady = Boolean(state.dailyPlans?.[todayISO()]);
   const openCount = openTrades().length;
   const closed = closedTrades();
   const lastTrade = [...closed].sort((a, b) => (b.closedAt || b.date).localeCompare(a.closedAt || a.date))[0];
@@ -1306,7 +1282,6 @@ function renderHomeVisuals() {
   `;
   document.getElementById("homeLeakMeter").style.setProperty("--leak", `${Math.round(processLeakRate() * 100)}%`);
   document.getElementById("homeSystemHealth").classList.toggle("is-warning", state.sops.length < 2);
-  renderHomeRedNewsWidget();
 }
 
 function renderMiniSparkline(id, values) {
@@ -1443,8 +1418,8 @@ window.updateStorageDiagnostics = updateStorageDiagnostics;
 
 function populateWorkflowForms() {
   const day = selectedDay || todayISO();
-  const plan = state.dailyPlans[day] || {};
-  const review = state.dailyReviews[day] || {};
+  const plan = state.dailyPlans?.[day] || {};
+  const review = state.dailyReviews?.[day] || {};
   const planForm = document.getElementById("planForm");
   const reviewForm = document.getElementById("reviewForm");
   planForm.workflowDate.value = day;
@@ -1640,10 +1615,10 @@ function renderInsights() {
   if (openTrades().length) cards.unshift([t("openTrades"), String(openTrades().length), t("reviewPrompt"), ""]);
   document.getElementById("summaryCards").innerHTML = cards.map(([title, value, note, key]) => insightCard(title, value, note, key)).join("");
   document.getElementById("statusGrid").innerHTML = [
-    ["Plan", state.dailyPlans[todayISO()] ? "Ready" : "Missing", "Pre-market plan"],
+    ["Plan", state.dailyPlans?.[todayISO()] ? "Ready" : "Missing", "Pre-market plan"],
     ["Open", `${openTrades(byDate(todayISO())).length}`, "In-progress trades"],
     ["Closed", `${closedByDate(todayISO()).length}`, "Completed today"],
-    ["Review", state.dailyReviews[todayISO()] ? "Done" : "Pending", "Daily close"],
+    ["Review", state.dailyReviews?.[todayISO()] ? "Done" : "Pending", "Daily close"],
   ].map(([title, value, note]) => `<article class="status-card"><span>${title}</span><strong>${value}</strong><small>${note}</small></article>`).join("");
 }
 
@@ -1670,7 +1645,7 @@ function monthlyCards(trades, start, end) {
   const dayStats = activeDays.map((day) => ({ day, totalR: metrics(closedByDate(day)).totalR }));
   const best = [...dayStats].sort((a, b) => b.totalR - a.totalR)[0];
   const worst = [...dayStats].sort((a, b) => a.totalR - b.totalR)[0];
-  const reviews = days.filter((day) => state.dailyReviews[day]).length;
+  const reviews = days.filter((day) => state.dailyReviews?.[day]).length;
 
   const formatDateNote = (d) => d ? d.replace(/-/g, ".") : "No data";
 
@@ -1860,8 +1835,8 @@ function renderSopTimeline() {
 
 function timelineCard(trade) {
   const img = imageFor(trade);
-  const session = trade.session || detectTradingSession(trade.openTime);
-  const sessionEmoji = session === "New York" ? "🗽 NY" : (session === "London" ? "🇬🇧 LDN" : "🌏 ASIA");
+  const session = trade.session || "New York";
+  const sessionEmoji = session === "New York" ? "🗽 NY" : (session === "London" ? "🇬🇧 LDN" : (session === "Asian" ? "🌏 ASIA" : "⚡ OTHER"));
 
   return `<article class="timeline-card ${trade.status === "open" ? "open" : ""}">
     <div>
@@ -1966,6 +1941,7 @@ function tradeCard(trade) {
         <div style="font-size:11px; color:var(--muted); margin-top:4px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
           <span>🟢 ${openDisp}</span>
           ${trade.status === "closed" ? `<span>🔴 ${closeDisp}</span>` : `<span class="tag info" style="font-size:10px;">In Progress</span>`}
+          <span class="tag session" style="font-size:10px; font-weight:600; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1);">${trade.session === "New York" ? "🗽 NY" : (trade.session === "London" ? "🇬🇧 LDN" : (trade.session === "Asian" ? "🌏 ASIA" : "⚡ OTHER"))}</span>
           ${durationTag}
         </div>
       </div>
@@ -1994,9 +1970,7 @@ function mediaBadges(trade) {
   const imgCount = imagesFor(trade).length;
   const imgBadge = imgCount > 1 ? `<span class="tag info">${imgCount} Images</span> ` : imgCount === 1 ? '<span class="tag info">Image</span> ' : "";
   const tvBadge = trade.tradingViewUrl ? '<span class="tag info">TV</span> ' : "";
-  const nearNews = window.forexFactoryRedNewsEngine?.isTradeNearRedNews(trade.date);
-  const newsBadge = nearNews ? `<span class="trade-red-news-tag" title="${safe(nearNews.event.title)}">🔴 ${safe(nearNews.event.currency)} News</span> ` : "";
-  return `${imgBadge}${tvBadge}${newsBadge}` || '<span class="muted">None</span>';
+  return `${imgBadge}${tvBadge}` || '<span class="muted">None</span>';
 }
 
 function imageFor(trade) {
@@ -2077,7 +2051,18 @@ function renderSessionHeatmap() {
     if (!dayName) return;
 
     let sessionKey = "NY_AM";
-    if (trade.openTime) {
+    if (trade.session === "Asian" || trade.session === "Asia") {
+      sessionKey = "Asia";
+    } else if (trade.session === "London") {
+      sessionKey = "London";
+    } else if (trade.session === "New York") {
+      if (trade.openTime && trade.openTime.includes("T")) {
+        const hour = parseInt(trade.openTime.split("T")[1].split(":")[0], 10);
+        sessionKey = (hour >= 12 && hour < 18) ? "NY_PM" : "NY_AM";
+      } else {
+        sessionKey = "NY_AM";
+      }
+    } else if (trade.openTime) {
       const parts = trade.openTime.split("T")[1];
       if (parts) {
         const hour = parseInt(parts.split(":")[0], 10);
@@ -2288,8 +2273,8 @@ function renderWorkflow() {
   const day = selectedDay || todayISO();
   const tradesToday = byDate(day);
   const closedToday = closedByDate(day);
-  const plan = state.dailyPlans[day];
-  const review = state.dailyReviews[day];
+  const plan = state.dailyPlans?.[day];
+  const review = state.dailyReviews?.[day];
   const status = [
     ["Plan ready", plan ? "Yes" : "No", plan?.bias || "Save a pre-market plan."],
     ["Open trades", String(openTrades(tradesToday).length), "In-progress execution"],
@@ -2311,7 +2296,7 @@ function renderCycles() {
   const cells = days.map((day) => {
     const m = metrics(closedByDate(day));
     const openCount = openTrades(byDate(day)).length;
-    const review = state.dailyReviews[day] ? "Review done" : "";
+    const review = state.dailyReviews?.[day] ? "Review done" : "";
     let klass = "";
     if (m.totalR >= 3) klass = "positive-3";
     else if (m.totalR >= 1) klass = "positive-2";
@@ -2333,8 +2318,8 @@ function renderCycles() {
 function renderDayDetail(day) {
   const trades = byDate(day);
   const closed = closedByDate(day);
-  const plan = state.dailyPlans[day];
-  const review = state.dailyReviews[day];
+  const plan = state.dailyPlans?.[day];
+  const review = state.dailyReviews?.[day];
   document.getElementById("dayDetailTitle").textContent = new Date(`${day}T00:00:00`).toLocaleDateString("en", { month: "short", day: "numeric", year: "numeric" });
   document.getElementById("dayDetail").innerHTML = `
     ${insightCard("Day R", formatR(metrics(closed).totalR), `${closed.length} closed | ${openTrades(trades).length} open`)}
@@ -2383,7 +2368,7 @@ function monthlyCards(trades, start, end) {
   const dayStats = activeDays.map((day) => ({ day, totalR: metrics(closedByDate(day)).totalR }));
   const best = [...dayStats].sort((a, b) => b.totalR - a.totalR)[0];
   const worst = [...dayStats].sort((a, b) => a.totalR - b.totalR)[0];
-  const reviews = days.filter((day) => state.dailyReviews[day]).length;
+  const reviews = days.filter((day) => state.dailyReviews?.[day]).length;
 
   const formatDateNote = (d) => d ? d.replace(/-/g, ".") : "No data";
 
@@ -2400,21 +2385,30 @@ function monthlyCards(trades, start, end) {
 }
 
 function renderPlaybook() {
-  document.getElementById("playbookGrid").innerHTML = state.sops.map((sop) => {
+  const target = document.getElementById("playbookGrid");
+  if (!target) return;
+  const sops = (state?.sops || []).filter((s) => !s.archivedAt);
+  if (!sops.length) {
+    target.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; color: var(--muted); padding: 40px 0;">No SOPs registered yet. Click "Add SOP" above to create your first trading plan.</div>`;
+    return;
+  }
+
+  target.innerHTML = sops.map((sop) => {
     const progress = sopProgress(sop.id);
     const level = sopLevel(progress);
     
     const trades = sopTrades(sop.id);
     const closed = closedTrades(trades);
-    const sparklineHtml = drawMiniSparklineMarkup(closed);
+    const sparklineHtml = typeof drawMiniSparklineMarkup === "function" ? drawMiniSparklineMarkup(closed) : "";
+    const checklistRules = parseSopChecklistRules(sop.checklist);
     
     return `
     <div class="sop-card-container" id="container-${sop.id}">
       <div class="sop-card-inner">
         <!-- Front Face -->
         <div class="sop-card-front">
-          <button class="card-flip-btn" style="right: 48px;" data-edit-sop="${safe(sop.id)}" title="Edit SOP" aria-label="Edit SOP">⚙️</button>
-          <button class="card-flip-btn" onclick="flipCard('${sop.id}')" title="Flip to rules (Actions)" aria-label="Flip card">🔄</button>
+          <button class="card-flip-btn" style="right: 48px;" data-edit-sop="${safe(sop.id)}" title="Edit SOP" aria-label="Edit SOP" type="button">⚙️</button>
+          <button class="card-flip-btn" onclick="flipCard('${sop.id}')" title="Flip to rules (Actions)" aria-label="Flip card" type="button">🔄</button>
           <div style="display:flex; flex-direction:column; gap:6px;">
             <span class="tag info" style="width:fit-content; margin-bottom:4px;">Level ${level.level} ${level.name}</span>
             <strong style="font-size:18px; line-height:1.2;">${safe(sop.name)}</strong>
@@ -2443,20 +2437,20 @@ function renderPlaybook() {
         
         <!-- Back Face -->
         <div class="sop-card-back">
-          <button class="card-flip-btn" onclick="flipCard('${sop.id}')" title="Flip to stats" aria-label="Flip card">🔄</button>
+          <button class="card-flip-btn" onclick="flipCard('${sop.id}')" title="Flip to stats" aria-label="Flip card" type="button">🔄</button>
           <div style="display:flex; flex-direction:column; gap:8px; overflow-y:auto; flex-grow:1; margin-bottom:12px; padding-right:4px;">
             <strong style="font-size:14px; color:var(--muted);">Checklist & Rules</strong>
             <ul style="margin: 0; padding-left: 18px; font-size:12px; line-height:1.4;">
-              ${(sop.checklist || []).slice(0, 4).map((item) => `<li>${safe(item)}</li>`).join("")}
-              ${(sop.checklist || []).length > 4 ? `<li>+${(sop.checklist || []).length - 4} more</li>` : ""}
+              ${checklistRules.slice(0, 4).map((item) => `<li>${safe(item)}</li>`).join("")}
+              ${checklistRules.length > 4 ? `<li>+${checklistRules.length - 4} more</li>` : ""}
             </ul>
             ${sop.entryRules ? `<div style="font-size:11px; opacity:0.85; border-top:1px solid var(--hairline); padding-top:6px;"><strong>Entry:</strong> ${safe(sop.entryRules)}</div>` : ''}
             ${sop.weaknesses && sop.weaknesses.length ? `<div style="font-size:11px; opacity:0.85; border-top:1px solid var(--hairline); padding-top:6px; color:var(--red);"><strong>Weakness:</strong> ${safe(sop.weaknesses[0])}</div>` : ''}
           </div>
           <div class="row-actions" style="margin-top:auto; border-top:1px solid var(--hairline); padding-top:10px;">
-            <button class="text-button" data-edit-sop="${safe(sop.id)}">Edit</button>
-            <button class="text-button" data-add-account="${safe(sop.id)}">Add Account</button>
-            <button class="text-button danger" data-delete-sop="${safe(sop.id)}">Delete</button>
+            <button class="text-button" data-edit-sop="${safe(sop.id)}" type="button">Edit</button>
+            <button class="text-button" data-add-account="${safe(sop.id)}" type="button">Add Account</button>
+            <button class="text-button danger" data-delete-sop="${safe(sop.id)}" type="button">Delete</button>
           </div>
         </div>
       </div>
@@ -2508,8 +2502,22 @@ function openSopModal(id = "") {
 }
 
 function openAccountModal(sopId = state.activeSopId, accountId = "") {
+  const isCreatingNew = !accountId;
+  const activeAccounts = (state.accounts || []).filter(a => !a.archivedAt);
+  const isPro = window.TRDAuth && window.TRDAuth.getSubscription && window.TRDAuth.getSubscription().plan === 'pro';
+
+  if (isCreatingNew && activeAccounts.length >= 1 && !isPro) {
+    if (window.TRDAuth && typeof window.TRDAuth.openUpgradeModal === 'function') {
+      window.TRDAuth.openUpgradeModal();
+    }
+    if (window.toast) {
+      window.toast("⭐ Multi-Account management (Prop/Real/Demo) is a PRO feature. Free tier includes 1 account.", "warning");
+    }
+    return;
+  }
+
   const account = state.accounts.find((item) => item.id === accountId) || {};
-    const currentSopId = account.sopId || sopId;
+  const currentSopId = account.sopId || sopId;
   const sopOptions = state.sops.filter(s => !s.archivedAt).map(s => `<option value="${safe(s.id)}" ${s.id === currentSopId ? "selected" : ""}>${safe(s.name)}</option>`).join("");
   openModal(accountId ? "Edit Account" : "Add Account", "Account", `
     <div class="sop-editor-form" id="accountEditorForm" data-account-id="${safe(accountId)}">
@@ -2570,7 +2578,7 @@ function openWalletManagerModal() {
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--surface-2); border-radius: 8px; border: 1px solid var(--hairline);">
               <div style="display: flex; flex-direction: column;">
                 <strong style="font-size: 14px;">${safe(acc.name)}</strong>
-                <span style="font-size: 12px; color: var(--muted);">Balance: ${acc.currentBalance ?? acc.startingBalance ?? 1000}</span>
+                <span style="font-size: 12px; color: var(--muted);">Balance: ${money(acc.currentBalance ?? acc.startingBalance ?? 1000)}</span>
               </div>
               <div style="display: flex; gap: 8px;">
                 <button class="ghost-button compact" type="button" onclick="window.openAccountModal('${safe(sop.id)}', '${safe(acc.id)}')">Edit</button>
@@ -2737,12 +2745,35 @@ function applyLanguage() {
   });
   const back = document.getElementById("backHomeBtn");
   if (back) back.textContent = t("back");
-  const action = document.querySelector(".module-action");
-  if (action) action.textContent = t("logTrade");
+  
+  const pillLabels = document.querySelectorAll("#headerLogTradeBtn .pill-label, #headerLogTradeBtn .pill-label-hover");
+  if (pillLabels.length > 0) {
+    pillLabels.forEach(el => el.textContent = t("logTrade"));
+  } else {
+    const action = document.querySelector(".module-action");
+    if (action) action.textContent = t("logTrade");
+  }
+
+  const guardrailText = document.getElementById("guardrailText");
+  if (guardrailText) {
+    const maxLoss = state?.preferences?.dailyMaxLossR || 2;
+    guardrailText.textContent = language === "zh" ? `每日最大亏损: -${maxLoss}R` : `Max daily loss: -${maxLoss}R`;
+  }
+  const guardrailMeta = document.getElementById("guardrailMeta");
+  if (guardrailMeta) {
+    const maxTrd = state?.preferences?.maxTradesPerDay || 3;
+    guardrailMeta.textContent = language === "zh" ? `最大交易数: ${maxTrd}` : `Max trades: ${maxTrd}`;
+  }
+
   if (activeModule) {
     const view = document.getElementById(activeModule);
     setText("moduleTitle", view?.dataset.title || t("today"));
   }
+
+  if (window.reactBitsDockEngine && typeof window.reactBitsDockEngine.updateDockLanguage === 'function') {
+    window.reactBitsDockEngine.updateDockLanguage(language);
+  }
+
   translatePageText();
 }
 
@@ -2801,7 +2832,20 @@ function translatePageText() {
     ["Update", "更新"]
   ];
   const map = new Map(language === "zh" ? pairs : pairs.map(([en, zh]) => [zh, en]));
-  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      if (node.parentElement && (
+        node.parentElement.closest('#landingPricingSection') ||
+        node.parentElement.closest('#upgradeModalBackdrop') ||
+        node.parentElement.closest('#authModalBackdrop') ||
+        node.parentElement.tagName === 'SCRIPT' ||
+        node.parentElement.tagName === 'STYLE'
+      )) {
+        return NodeFilter.FILTER_REJECT;
+      }
+      return NodeFilter.FILTER_ACCEPT;
+    }
+  });
   const nodes = [];
   while (walker.nextNode()) nodes.push(walker.currentNode);
   nodes.forEach((node) => {
@@ -3075,14 +3119,18 @@ function renderPreFlightChecklist(sopId = null, existingSavedChecklist = null) {
 
   _prevChecklistFull = false;
 
+  const savedItems = Array.isArray(existingSavedChecklist)
+    ? existingSavedChecklist
+    : (existingSavedChecklist?.items || []);
+
   container.innerHTML = rules.map((rule, idx) => {
     let isChecked = false;
-    if (existingSavedChecklist?.items) {
-      const matchByText = existingSavedChecklist.items.find((i) => i.text === rule);
+    if (savedItems && savedItems.length > 0) {
+      const matchByText = savedItems.find((i) => i && (i.text === rule || i.ruleText === rule));
       if (matchByText) {
         isChecked = Boolean(matchByText.checked);
-      } else if (existingSavedChecklist.items[idx]) {
-        isChecked = Boolean(existingSavedChecklist.items[idx].checked);
+      } else if (savedItems[idx]) {
+        isChecked = Boolean(savedItems[idx].checked);
       }
     }
     return `
@@ -3102,38 +3150,23 @@ function renderPreFlightChecklist(sopId = null, existingSavedChecklist = null) {
   });
 
   updatePreFlightChecklistProgress(true);
-  updateRedNewsHUD();
 }
 
-function updateRedNewsHUD() {
-  const container = document.getElementById("preflightRedNewsAlert");
-  if (!container) return;
-
-  const tradeDate = document.querySelector("#tradeForm [name='openTime']")?.value?.split("T")[0] || todayISO();
-  const nearNews = window.forexFactoryRedNewsEngine?.isTradeNearRedNews ? window.forexFactoryRedNewsEngine.isTradeNearRedNews(tradeDate) : null;
-
-  if (nearNews && nearNews.event) {
-    container.classList.remove("hidden");
-    container.innerHTML = `
-      <div style="display:flex; align-items:center; gap:8px; width:100%;">
-        <span style="font-size:16px;">🔴</span>
-        <div>
-          <strong style="color:#ff3b30; font-size:12px;">High-Impact ${safe(nearNews.event.currency)} Red News Alert</strong>
-          <p style="margin:2px 0 0 0; font-size:11px; color:var(--text); opacity:0.9;">
-            ${safe(nearNews.event.title)} (${safe(nearNews.event.time || "Today")}) - High Volatility Risk Alert
-          </p>
-        </div>
-      </div>
-    `;
-  } else {
-    container.classList.add("hidden");
-    container.innerHTML = "";
-  }
-}
-
-window.updateRedNewsHUD = updateRedNewsHUD;
 window.renderPreFlightChecklist = renderPreFlightChecklist;
 window.updatePreFlightChecklistProgress = updatePreFlightChecklistProgress;
+
+window.verifyAllPreflight = function() {
+  const container = document.getElementById("preflightChecklistContainer");
+  if (!container) return;
+  const checkboxes = container.querySelectorAll(".preflight-checkbox");
+  checkboxes.forEach((cb) => {
+    cb.checked = true;
+    const label = cb.closest(".preflight-item");
+    if (label) label.classList.add("checked");
+  });
+  updatePreFlightChecklistProgress();
+  if (typeof playSound === "function") playSound("success");
+};
 
 function updatePreFlightChecklistProgress(silent = false) {
   const container = document.getElementById("preflightChecklistContainer");
@@ -3146,17 +3179,18 @@ function updatePreFlightChecklistProgress(silent = false) {
   const checkboxes = Array.from(container.querySelectorAll(".preflight-checkbox"));
   const total = checkboxes.length;
   const checkedCount = checkboxes.filter((cb) => cb.checked).length;
-  const isFull = total > 0 && checkedCount === total;
+  const isFull = total === 0 || checkedCount === total;
 
   const formId = document.getElementById("tradeForm")?.elements?.id?.value;
-  const currentTrade = formId ? state.trades.find((t) => t.id === formId) : null;
+  const currentTrade = formId ? (state?.trades || []).find((t) => t.id === formId) : null;
   const isEditingExisting = Boolean(formId && currentTrade);
+
+  submitBtn.disabled = false; // Always keep button clickable for interactive guidance
 
   if (isFull) {
     card.classList.add("is-verified");
-    pill.textContent = `✓ ${total}/${total} Verified`;
-    if (hint) hint.textContent = `✅ 风控检查已 100% 通过！解禁允许提交。`;
-    submitBtn.disabled = false;
+    pill.textContent = total === 0 ? "✓ No Rules" : `✓ ${total}/${total} Verified`;
+    if (hint) hint.textContent = `✅ 风控检查已 100% 通过！允许提交。`;
     if (!silent && !_prevChecklistFull) {
       playSound("success");
       if (window.appleAudioEngine) window.appleAudioEngine.play("dockClick");
@@ -3166,13 +3200,11 @@ function updatePreFlightChecklistProgress(silent = false) {
     card.classList.remove("is-verified");
     pill.textContent = `${checkedCount}/${total} Rules Checked`;
     if (hint) hint.textContent = `📝 正在修改已有交易记录 (${checkedCount}/${total})。`;
-    submitBtn.disabled = false;
     _prevChecklistFull = false;
   } else {
     card.classList.remove("is-verified");
     pill.textContent = `${checkedCount}/${total} Rules Checked`;
-    if (hint) hint.textContent = `⚠️ 必须打勾确认所有 ${total} 项注意事项后，方可开启交易。`;
-    submitBtn.disabled = true;
+    if (hint) hint.textContent = `⚠️ 请勾选确认全部 ${total} 项注意事项 (或点右上角「一键确认」)。`;
     _prevChecklistFull = false;
   }
 }
@@ -3185,11 +3217,11 @@ function resetTradeForm() {
   form.date.value = todayISO();
   if (form.openTime) form.openTime.value = nowDatetimeLocal();
   if (form.closeTime) form.closeTime.value = "";
-  form.symbol.value = state.preferences.defaultSymbol;
-  form.sopId.value = state.activeSopId;
+  form.symbol.value = state?.preferences?.defaultSymbol || "EURUSD";
+  form.sopId.value = state?.activeSopId || "";
   populateSopControls();
-  form.accountId.value = state.activeAccountId;
-  form.risk.value = state.preferences.riskPerTrade;
+  form.accountId.value = state?.activeAccountId || "";
+  form.risk.value = state?.preferences?.riskPerTrade || 100;
   form.pnl.value = "";
   form.tradingViewUrl.value = "";
   form.imageUrl.value = "";
@@ -3200,6 +3232,7 @@ function resetTradeForm() {
   form.exitNote.value = "";
   form.note.value = "";
   form.rule.value = "true";
+  if (form.session) form.session.value = "New York";
   document.getElementById("tradeFormNewsAlert")?.classList.add("hidden");
   const adv = document.querySelector(".advanced-fields");
   if (adv) adv.open = false;
@@ -3209,9 +3242,13 @@ function resetTradeForm() {
   if (btn) btn.textContent = "Start Trade";
   const cancel = document.getElementById("cancelEditBtn");
   if (cancel) cancel.classList.add("hidden");
-  renderPreFlightChecklist(state.activeSopId);
-  closeSheet("tradeFormSheet");
+  renderPreFlightChecklist(state?.activeSopId);
 }
+window.resetTradeForm = resetTradeForm;
+window.openTradeCapture = function() {
+  resetTradeForm();
+  openSheet("tradeFormSheet");
+};
 
 function editTrade(id) {
   const trade = state.trades.find((item) => item.id === id);
@@ -3221,6 +3258,7 @@ function editTrade(id) {
   form.date.value = trade.date;
   if (form.openTime) form.openTime.value = trade.openTime || (trade.date ? `${trade.date}T09:30` : nowDatetimeLocal());
   if (form.closeTime) form.closeTime.value = trade.status === "open" ? "" : (trade.closeTime || (trade.closedAt ? `${trade.closedAt}T10:30` : ""));
+  if (form.session) form.session.value = trade.session || "New York";
   form.symbol.value = trade.symbol;
   state.activeSopId = trade.sopId || state.activeSopId;
   const account = state.accounts.find((item) => item.id === trade.accountId);
@@ -3262,11 +3300,6 @@ function editTrade(id) {
     if (form[key]) form[key].checked = Boolean(trade.checklist[key]);
   }
   
-  // Explicitly render the pre-flight checklist for the edited trade
-  if (typeof renderPreFlightChecklist === "function") {
-    renderPreFlightChecklist(trade.sopId, trade.preFlightChecklist?.items);
-  }
-
   document.querySelector(".advanced-fields").open = trade.status !== "open";
   document.getElementById("tradeFormMode").textContent = trade.status === "open" ? "Update open trade" : "Edit closed trade";
   document.getElementById("saveTradeBtn").textContent = trade.status === "open" ? "Update Trade" : "Save Trade";
@@ -3320,6 +3353,15 @@ async function saveTradeFromForm(event) {
       });
     }
 
+    // Free Tier Gating: Limit to 1 screenshot per trade
+    const isPro = window.TRDAuth && window.TRDAuth.getSubscription && window.TRDAuth.getSubscription().plan === 'pro';
+    if (!isPro && finalImages.length > 1) {
+      finalImages = finalImages.slice(0, 1);
+      if (window.toast) {
+        window.toast("⭐ Free plan supports 1 screenshot per trade. Upgrade to Pro for 4-chart multi-timeframe comparison.", "warning");
+      }
+    }
+
     const preflightContainer = document.getElementById("preflightChecklistContainer");
     const preflightCbs = preflightContainer ? Array.from(preflightContainer.querySelectorAll(".preflight-checkbox")) : [];
     const preflightItems = preflightCbs.map((cb) => ({
@@ -3327,6 +3369,19 @@ async function saveTradeFromForm(event) {
       checked: Boolean(cb.checked)
     }));
     const preflightPassed = preflightItems.length === 0 || preflightItems.every((i) => i.checked);
+
+    const isNewOpenTrade = !form.elements.id.value && !form.pnl.value.trim() && !form.closeTime?.value.trim();
+    if (isNewOpenTrade && !preflightPassed) {
+      const card = document.getElementById("preFlightCard");
+      if (card) {
+        card.classList.add("shake-attention");
+        card.scrollIntoView({ behavior: "smooth", block: "center" });
+        setTimeout(() => card.classList.remove("shake-attention"), 800);
+      }
+      if (typeof playSound === "function") playSound("alert");
+      if (window.toast) window.toast("⚠️ 请勾选确认开仓前风控检查 (或点击右上角「⚡ 一键确认」)", "warning");
+      return;
+    }
 
     const activeSopObj = state.sops.find((s) => s.id === form.sopId.value) || activeSop();
     const trade = normalizeTrade({
@@ -3337,6 +3392,7 @@ async function saveTradeFromForm(event) {
       closedAt: closedAtDate,
       openTime: openTimeVal,
       closeTime: closeTimeVal,
+      session: form.session ? form.session.value : (current.session || "New York"),
       symbol: form.symbol.value.trim().toUpperCase(),
       sopId: form.sopId.value,
       accountId: form.accountId.value,
@@ -3404,6 +3460,19 @@ async function saveTradeFromForm(event) {
     }
     
     toast(nextStatus === "open" ? `Added to ${sopName(trade.sopId)} journey.` : `Record completed. ${progress.records} records in this SOP.`, toastType);
+
+    // Active Risk Guardrail: Alert if daily max loss is breached
+    if (nextStatus === "closed") {
+      const today = tradeDate;
+      const todayClosedTrades = state.trades.filter(t => (t.openTime?.split("T")[0] || t.date) === today && t.status === "closed");
+      const todayTotalR = todayClosedTrades.reduce((sum, t) => sum + rValue(t), 0);
+      const maxLossR = Math.abs(state.preferences.dailyMaxLossR || 2);
+      if (todayTotalR <= -maxLossR) {
+        setTimeout(() => {
+          toast(`🚨 Daily Max Loss Limit Hit (${todayTotalR.toFixed(1)}R / -${maxLossR}R). Step away to prevent revenge trading!`, "error");
+        }, 1000);
+      }
+    }
   } catch (error) {
     toast(error.message, "error");
   }
@@ -3418,6 +3487,9 @@ function deleteTrade(id) {
   closeSheet("detailSheet");
   closeSheet("tradeFormSheet");
   renderAll();
+  if (window.TRDAuth && typeof window.TRDAuth.updateQuotaBadge === "function") {
+    window.TRDAuth.updateQuotaBadge();
+  }
   toast("Trade deleted.", "delete");
 }
 
@@ -3467,10 +3539,8 @@ function mediaBadges(trade) {
   const imgCount = imagesFor(trade).length;
   const imgBadge = imgCount > 1 ? `<span class="tag info">${imgCount} Images</span> ` : imgCount === 1 ? '<span class="tag info">Image</span> ' : "";
   const tvBadge = trade.tradingViewUrl ? '<span class="tag info">TV</span> ' : "";
-  const nearNews = window.forexFactoryRedNewsEngine?.isTradeNearRedNews(trade.date);
-  const newsBadge = nearNews ? `<span class="trade-red-news-tag" title="${safe(nearNews.event.title)}">🔴 ${safe(nearNews.event.currency)} News</span> ` : "";
-  const preflightBadge = trade.preFlightChecklist?.passed ? '<span class="preflight-verified-badge" title="开仓前 5 项风控检查已全通过">✓ Verified</span> ' : "";
-  return `${preflightBadge}${imgBadge}${tvBadge}${newsBadge}` || '<span class="muted">None</span>';
+  const preflightBadge = trade.preFlightChecklist?.passed ? '<span class="preflight-verified-badge" title="Verified">✓ Verified</span> ' : "";
+  return `${preflightBadge}${imgBadge}${tvBadge}` || '<span class="muted">None</span>';
 }
 
 async function closeTradeFromModal(event) {
@@ -3633,6 +3703,7 @@ window.openImageLightbox = function(src) {
     img.src = src;
     modal.style.display = "flex";
     modal.classList.add("active");
+    document.body.style.overflow = "hidden";
   }
 };
 
@@ -3641,6 +3712,10 @@ window.closeImageLightbox = function() {
   if (modal) {
     modal.classList.remove("active");
     modal.style.display = "none";
+    if (!document.getElementById("authModalBackdrop")?.classList.contains("active") &&
+        !document.getElementById("upgradeModalBackdrop")?.classList.contains("active")) {
+      document.body.style.overflow = "";
+    }
   }
 };
 
@@ -3849,16 +3924,7 @@ window.openModal = openModal;
 window.closeModal = closeModal;
 window.openRedNewsModal = openRedNewsModal;
 window.closeRedNewsModal = closeRedNewsModal;
-window.renderRedNewsTable = renderRedNewsTable;
-window.renderHomeRedNewsWidget = renderHomeRedNewsWidget;
-window.updateNewsBarCountdown = updateNewsBarCountdown;
-
-window.clearPastNews = function() {
-  if (window.forexFactoryRedNewsEngine) window.forexFactoryRedNewsEngine.clearPast();
-  if (typeof renderRedNewsTable === "function") renderRedNewsTable(currentRedNewsCurrencyFilter);
-  if (typeof renderHomeRedNewsWidget === "function") renderHomeRedNewsWidget();
-  if (typeof updateNewsBarCountdown === "function") updateNewsBarCountdown();
-};
+window.clearPastNews = function() {};
 
 window.triggerBentoAction = function(actionStr, moduleName) {
   if (actionStr === "open-capture") {
@@ -3872,8 +3938,8 @@ window.triggerBentoAction = function(actionStr, moduleName) {
 
 function updateWorkflowTiles() {
   const day = todayISO();
-  const hasPlan = !!(state.dailyPlans[day] && state.dailyPlans[day].bias);
-  const hasReview = !!(state.dailyReviews[day] && state.dailyReviews[day].keep);
+  const hasPlan = !!(state.dailyPlans?.[day] && state.dailyPlans?.[day].bias);
+  const hasReview = !!(state.dailyReviews?.[day] && state.dailyReviews?.[day].keep);
 
   const tilePlan = document.getElementById("tilePlan");
   const tileReview = document.getElementById("tileReview");
@@ -3960,20 +4026,34 @@ function closeModule() {
 }
 
 function switchLanguage() {
-  playSound("switch");
+  if (typeof playSound === "function") playSound("switch");
   language = language === "en" ? "zh" : "en";
   localStorage.setItem(LANGUAGE_KEY, language);
+  document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
+  applyLanguage();
   renderAll();
-  toast(t("languageSaved"));
+  if (window.TRDAuth && typeof window.TRDAuth.updateQuotaBadge === "function") {
+    window.TRDAuth.updateQuotaBadge();
+  }
+  if (typeof toast === "function") {
+    toast(language === "zh" ? "已切换至华文模式 🇨🇳" : "Switched to English 🇺🇸");
+  }
 }
+window.switchLanguage = switchLanguage;
 
 function switchTheme() {
-  playSound("pop");
-  theme = theme === "light" ? "dark" : "light";
+  if (typeof playSound === "function") playSound("pop");
+  const currentAttr = document.documentElement.getAttribute("data-theme") || theme;
+  theme = currentAttr === "dark" ? "light" : "dark";
   localStorage.setItem("trd-journey-theme", theme);
   document.documentElement.setAttribute("data-theme", theme);
-  toast(theme === "dark" ? "Dark mode enabled." : "Light mode enabled.");
+  document.body.setAttribute("data-theme", theme);
+  renderThemeButtons();
+  if (typeof toast === "function") {
+    toast(theme === "dark" ? "🌙 Dark mode enabled." : "☀️ Light mode enabled.");
+  }
 }
+window.switchTheme = switchTheme;
 
 function renderThemeButtons() {
   // SVG sun/moon icon auto toggles via CSS data-theme selectors, no textContent needed.
@@ -3983,12 +4063,20 @@ document.querySelectorAll("[data-open-module]").forEach((button) => {
   button.addEventListener("click", () => openModule(button.dataset.openModule, button));
 });
 
-document.querySelectorAll(".language-toggle").forEach((button) => {
-  button.addEventListener("click", switchLanguage);
-});
-
-document.querySelectorAll(".theme-toggle, #headerThemeToggleBtn").forEach((button) => {
-  button.addEventListener("click", switchTheme);
+// Robust delegation for Theme and Language toggles
+document.addEventListener("click", (e) => {
+  const themeBtn = e.target.closest("#headerThemeToggleBtn, .theme-toggle-btn, .theme-toggle");
+  if (themeBtn) {
+    e.preventDefault();
+    switchTheme();
+    return;
+  }
+  const langBtn = e.target.closest(".language-toggle, #headerLangToggleBtn");
+  if (langBtn) {
+    e.preventDefault();
+    switchLanguage();
+    return;
+  }
 });
 
 document.getElementById("backHomeBtn")?.addEventListener("click", closeModule);
@@ -4075,6 +4163,11 @@ window.resetInternalSelection = function() {
 };
 
 function handleInternalKeyDown(event) {
+  // Ignore if typing inside input, textarea, or editable element
+  if (event.target && (event.target.tagName === "INPUT" || event.target.tagName === "TEXTAREA" || event.target.isContentEditable)) {
+    return;
+  }
+
   // Only handle if landing gallery is NOT active
   const landing = document.getElementById("landing-gallery");
   if (landing && landing.classList.contains("active")) return;
@@ -4359,38 +4452,63 @@ document.body.addEventListener("click", (event) => {
     }
     return;
   }
+
+  const reviewPanelBtn = event.target.closest("[data-review-panel]");
+  if (reviewPanelBtn) {
+    const panelName = reviewPanelBtn.dataset.reviewPanel;
+    if (panelName) switchReviewPanel(panelName);
+    return;
+  }
 });
 
-// Global submit listener removed; dynamic forms now use inline onsubmit handlers to prevent iOS Safari bubbling bugs.
+function switchReviewPanel(panelName) {
+  if (!panelName) return;
+  if (typeof playSound === "function") playSound("click");
+  document.querySelectorAll("[data-review-panel]").forEach((item) => {
+    item.classList.toggle("active", item.dataset.reviewPanel === panelName);
+  });
+  const targetPanelId = `review-${panelName}`;
+  const targetPanel = document.getElementById(targetPanelId);
+
+  document.querySelectorAll(".review-panel").forEach((panel) => {
+    panel.classList.remove("active");
+  });
+
+  if (targetPanel) {
+    targetPanel.classList.add("active");
+  }
+
+  if (panelName === "insights") {
+    renderInsights();
+  } else if (panelName === "calendar") {
+    renderCycles();
+  } else if (panelName === "charts") {
+    renderCharts();
+    renderSessionHeatmap();
+    renderMaeMfeScatterChart();
+  } else if (panelName === "playbook") {
+    renderPlaybook();
+  } else if (panelName === "reflections") {
+    renderReflections();
+  } else if (panelName === "simulation") {
+    executeAndRenderMonteCarlo();
+    if (window.reactBitsDockEngine) window.reactBitsDockEngine.setActiveModule('simulation');
+  } else if (panelName === "backtester") {
+    populateBacktestSops();
+    renderSavedBacktests();
+    updateBacktesterUI();
+  }
+
+  if (panelName !== "simulation" && window.reactBitsDockEngine) {
+    window.reactBitsDockEngine.setActiveModule('review');
+  }
+}
+window.switchReviewPanel = switchReviewPanel;
 
 document.querySelectorAll("[data-review-panel]").forEach((button) => {
-  button.addEventListener("click", () => {
-    playSound("click");
-    document.querySelectorAll("[data-review-panel]").forEach((item) => item.classList.toggle("active", item === button));
-    const targetPanelId = `review-${button.dataset.reviewPanel}`;
-    const targetPanel = document.getElementById(targetPanelId);
-    
-    document.querySelectorAll(".review-panel").forEach((panel) => {
-      panel.classList.remove("active");
-    });
-    
-    if (targetPanel) {
-      targetPanel.classList.add("active");
-      targetPanel.classList.add("is-skeleton");
-      setTimeout(() => targetPanel.classList.remove("is-skeleton"), 200);
-    }
-    
-    if (button.dataset.reviewPanel === "backtester") {
-      populateBacktestSops();
-      renderSavedBacktests();
-      updateBacktesterUI();
-    }
-    if (button.dataset.reviewPanel === "simulation") {
-      executeAndRenderMonteCarlo();
-      if (window.reactBitsDockEngine) window.reactBitsDockEngine.setActiveModule('simulation');
-    } else {
-      if (window.reactBitsDockEngine) window.reactBitsDockEngine.setActiveModule('review');
-    }
+  button.addEventListener("click", (e) => {
+    e.stopPropagation();
+    switchReviewPanel(button.dataset.reviewPanel);
   });
 });
 
@@ -4409,7 +4527,7 @@ document.getElementById("planForm")?.addEventListener("submit", (event) => {
   event.preventDefault();
   const form = event.currentTarget;
   const day = form.workflowDate.value || selectedDay || todayISO();
-  selectedDay = day;
+  if (!state.dailyPlans) state.dailyPlans = {};
   state.dailyPlans[day] = {
     bias: form.bias.value.trim(),
     levels: form.levels.value.trim(),
@@ -4433,6 +4551,7 @@ document.getElementById("reviewForm")?.addEventListener("submit", (event) => {
   const form = event.currentTarget;
   const day = form.workflowDate.value || selectedDay || todayISO();
   selectedDay = day;
+  if (!state.dailyReviews) state.dailyReviews = {};
   state.dailyReviews[day] = {
     keep: form.keep.value.trim(),
     remove: form.remove.value.trim(),
@@ -4820,8 +4939,8 @@ function initCalendarHover() {
     const dayTrades = byDate(day);
     const closed = closedTrades(dayTrades);
     const m = metrics(closed);
-    const review = state.dailyReviews[day];
-    const plan = state.dailyPlans[day];
+    const review = state.dailyReviews?.[day];
+    const plan = state.dailyPlans?.[day];
     
     let html = `<div style="font-family:-apple-system, sans-serif; font-size:12px; line-height:1.45; text-align:left;">`;
     html += `<strong style="font-size:13px; color:var(--ink); display:block; margin-bottom:4px;">${day}</strong>`;
@@ -5018,9 +5137,11 @@ function runMonteCarloSimulation(numTrades = 50, numRuns = 1000) {
 function renderMonteCarloChart(results) {
   const svg = document.getElementById("monteCarloChart");
   const metricsGrid = document.getElementById("monteCarloMetricsGrid");
-  if (!svg) return;
+  if (!svg || !results) return;
 
   const { numTrades, topCurve, medianCurve, bottomCurve, winRate, medianFinalR, medianDD, p95DD, isBaseline } = results;
+  if (!topCurve || !medianCurve || !bottomCurve || !topCurve.length) return;
+
   const width = 760;
   const height = 320;
   const pad = 36;
@@ -5114,10 +5235,11 @@ function renderMonteCarloChart(results) {
 
 function executeAndRenderMonteCarlo() {
   const select = document.getElementById("mcTradeCountSelect");
-  const count = select ? parseInt(select.value, 10) : 50;
+  const count = select ? parseInt(select.value, 10) || 50 : 50;
   const results = runMonteCarloSimulation(count, 1000);
   renderMonteCarloChart(results);
 }
+window.executeAndRenderMonteCarlo = executeAndRenderMonteCarlo;
 
 function updateMindfulnessBanner() {
   const banner = document.getElementById("mindfulnessBanner");
@@ -5430,8 +5552,8 @@ function renderMissions() {
 
   // 2. Render Daily Quests
   const day = todayISO();
-  const hasPlan = !!(state.dailyPlans[day] && state.dailyPlans[day].bias);
-  const hasReview = !!(state.dailyReviews[day] && state.dailyReviews[day].keep);
+  const hasPlan = !!(state.dailyPlans?.[day] && state.dailyPlans?.[day].bias);
+  const hasReview = !!(state.dailyReviews?.[day] && state.dailyReviews?.[day].keep);
   
   // Risk control quest:
   const todayTrades = state.trades.filter(t => t.date === day);
@@ -5886,14 +6008,6 @@ async function initApp() {
     initLayoutListeners();
     console.log("initApp: Listeners and modules initialized successfully");
     
-    const tradeForm = document.getElementById("tradeForm");
-    if (tradeForm) {
-      ["change", "input"].forEach((evtName) => {
-        tradeForm.elements.openTime?.addEventListener(evtName, updateRedNewsHUD);
-        tradeForm.elements.date?.addEventListener(evtName, updateRedNewsHUD);
-      });
-    }
-
     updateStorageEstimate();
     updateSyncStatus();
     
@@ -6118,248 +6232,13 @@ function scrollSelectedItemIntoView(container, selectedItem) {
 /* ==========================================================================
    ForexFactory High-Impact Red Folder Economic Calendar & Top News Bar
    ========================================================================== */
-let currentRedNewsCurrencyFilter = "All";
-
-function initNewsBar() {
-  if (window.newsBarInitialized) {
-    updateNewsBarCountdown();
-    renderHomeRedNewsWidget();
-    return;
-  }
-  window.newsBarInitialized = true;
-
-  const headerNewsBtn = document.getElementById("headerNewsBtn");
-  const newsBarViewBtn = document.getElementById("newsBarViewBtn");
-  const closeRedNewsModalBtn = document.getElementById("closeRedNewsModalBtn");
-  const newsCurrencyFilters = document.getElementById("newsCurrencyFilters");
-
-  if (headerNewsBtn) headerNewsBtn.onclick = () => openRedNewsModal();
-  if (newsBarViewBtn) newsBarViewBtn.onclick = () => openRedNewsModal();
-  if (closeRedNewsModalBtn) closeRedNewsModalBtn.onclick = () => closeRedNewsModal();
-
-  if (newsCurrencyFilters) {
-    newsCurrencyFilters.querySelectorAll(".filter-chip").forEach(btn => {
-      btn.onclick = (e) => {
-        newsCurrencyFilters.querySelectorAll(".filter-chip").forEach(b => b.classList.remove("active"));
-        e.target.classList.add("active");
-        currentRedNewsCurrencyFilter = e.target.getAttribute("data-currency") || "All";
-        renderRedNewsTable(currentRedNewsCurrencyFilter);
-      };
-    });
-  }
-
-  const tradeForm = document.getElementById("tradeForm");
-  if (tradeForm) {
-    ["change", "input"].forEach(evtName => {
-      tradeForm.addEventListener(evtName, () => checkTradeFormNewsRisk());
-    });
-  }
-
-  // Expose news management to global scope for inline HTML handlers
-  window.addRedNewsEvent = addRedNewsEvent;
-  window.deleteRedNewsEvent = deleteRedNewsEvent;
-  window.clearPastRedNewsEvents = clearPastRedNewsEvents;
-
-  window.submitRedNewsEvent = function(event) {
-    event.preventDefault();
-    const date = document.getElementById("rnDate")?.value?.trim();
-    const time = document.getElementById("rnTime")?.value?.trim();
-    const currency = document.getElementById("rnCurrency")?.value?.trim();
-    const title = document.getElementById("rnTitle")?.value?.trim();
-    const forecast = document.getElementById("rnForecast")?.value?.trim();
-    const previous = document.getElementById("rnPrevious")?.value?.trim();
-    if (!date || !time || !title) return;
-    addRedNewsEvent({ date, time, currency, title, forecast, previous });
-    document.getElementById("rnTitle").value = "";
-    document.getElementById("rnForecast").value = "";
-    document.getElementById("rnPrevious").value = "";
-    renderRedNewsTable(currentRedNewsCurrencyFilter);
-    renderHomeRedNewsWidget();
-    updateNewsBarCountdown();
-  };
-
-  // Global sync function for button and auto-sync
-  window.syncFFNews = async function(force = false) {
-    const syncBtn = document.getElementById("ffSyncBtn");
-    const syncStatus = document.getElementById("ffSyncStatus");
-    if (syncBtn) { syncBtn.disabled = true; syncBtn.textContent = "⏳ Syncing..."; }
-    if (syncStatus) syncStatus.textContent = "Connecting to ForexFactory...";
-
-    if (force && window.forexFactoryRedNewsEngine) {
-      // Clear the 1h cache to force a fresh fetch
-      try { localStorage.removeItem("trd_ff_sync_cache_v1"); } catch(e) {}
-    }
-
-    const result = await window.forexFactoryRedNewsEngine?.syncFromFeed({ onlyHighImpact: true, clearExisting: force });
-    if (syncBtn) { syncBtn.disabled = false; syncBtn.textContent = "🔄 Sync Now"; }
-
-    if (result?.success) {
-      const msg = result.added > 0
-        ? `✅ Added ${result.added} new high-impact events (${result.total} total this week)`
-        : `✅ Already up to date (${result.total} events this week)`;
-      if (syncStatus) syncStatus.textContent = msg;
-      renderRedNewsTable(currentRedNewsCurrencyFilter);
-      renderHomeRedNewsWidget();
-      updateNewsBarCountdown();
-    } else {
-      if (syncStatus) syncStatus.textContent = `⚠️ Sync failed: ${result?.error || "Network error"}. You can add events manually below.`;
-    }
-  };
-
-  updateNewsBarCountdown();
-  renderHomeRedNewsWidget();
-  if (!window.newsBarTimer) {
-    window.newsBarTimer = setInterval(updateNewsBarCountdown, 1000);
-  }
-}
-
-function updateNewsBarCountdown() {
-  const countdownEl = document.getElementById("newsBarCountdown");
-  if (!countdownEl || !window.forexFactoryRedNewsEngine) return;
-
-  const nextEvt = window.forexFactoryRedNewsEngine.getNextRedEvent();
-  if (!nextEvt) {
-    countdownEl.textContent = "No upcoming high-impact red news";
-    return;
-  }
-
-  const now = new Date();
-  const diffMs = nextEvt.eventDate - now;
-
-  if (diffMs <= 0) {
-    countdownEl.textContent = `🔴 ${nextEvt.currency} ${nextEvt.title} (Released Now)`;
-  } else {
-    const hours = Math.floor(diffMs / (1000 * 60 * 60));
-    const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-    const secs = Math.floor((diffMs % (1000 * 60)) / 1000);
-    const hStr = hours > 0 ? `${hours}h ` : "";
-    const mStr = `${mins}m `;
-    const sStr = `${secs}s`;
-    countdownEl.textContent = `Next Red Event: ${nextEvt.currency} ${nextEvt.title} in ${hStr}${mStr}${sStr} (${nextEvt.time})`;
-  }
-}
-
-function openRedNewsModal() {
-  renderRedNewsTable(currentRedNewsCurrencyFilter);
-  openSheet("redNewsModal");
-  // Auto-sync from ForexFactory when opening the modal (respects 1h rate-limit cache)
-  if (window.syncFFNews) window.syncFFNews(false);
-}
-
-function closeRedNewsModal() {
-  closeSheet("redNewsModal");
-}
-
-function renderRedNewsTable(currency = "All") {
-  const tbody = document.getElementById("redNewsTableBody");
-  if (!tbody || !window.forexFactoryRedNewsEngine) return;
-
-  const events = window.forexFactoryRedNewsEngine.filterByCurrency(currency);
-
-  // Always show the add-event form in a fixed area above the table
-  const addFormEl = document.getElementById("redNewsAddForm");
-  if (addFormEl) addFormEl.style.display = "";
-
-  if (!events.length) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:32px 24px;">
-      <div style="font-size:2rem; margin-bottom:10px;">🗓️</div>
-      <div style="font-weight:700; margin-bottom:6px;">No events added yet${currency !== 'All' ? ' for ' + safe(currency) : ''}</div>
-      <div style="color:var(--muted); font-size:0.82rem; max-width:320px; margin:0 auto; line-height:1.5;">
-        Go to <strong>forexfactory.com/calendar</strong>, find the red-folder 🔴 events for the week,<br>and add them using the form above.
-      </div>
-    </td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = events.map(e => {
-    const currClass = e.currency.toLowerCase();
-    const actualClass = !e.actual ? "style='color:var(--muted);'" : e.actual.includes("-") ? "style='color:#ef4444; font-weight:700;'" : "style='color:#22c55e; font-weight:700;'";
-    return `
-      <tr>
-        <td><strong>${safe(e.date)}</strong> <span style="color:var(--muted); margin-left:4px;">${safe(e.time)}</span></td>
-        <td><span class="badge-currency ${currClass}">${safe(e.currency)}</span></td>
-        <td><span class="red-folder-icon" title="High Impact">🔴</span></td>
-        <td><strong>${safe(e.title)}</strong></td>
-        <td ${actualClass}>${safe(e.actual || "—")}</td>
-        <td>${safe(e.forecast || "—")}</td>
-        <td>${safe(e.previous || "—")}</td>
-        <td><button onclick="window.forexFactoryRedNewsEngine.deleteEvent('${safe(e.id)}'); renderRedNewsTable(currentRedNewsCurrencyFilter); renderHomeRedNewsWidget(); updateNewsBarCountdown();" style="background:none; border:none; cursor:pointer; color:var(--red); font-size:1rem; padding:2px 6px;" title="Delete event">✕</button></td>
-      </tr>
-    `;
-  }).join("");
-}
-
-function renderHomeRedNewsWidget() {
-  const bodyEl = document.getElementById("homeRedNewsBody");
-  if (!bodyEl || !window.forexFactoryRedNewsEngine) return;
-
-  const now = new Date();
-  const todayStr = todayISO();
-  const allEvents = window.forexFactoryRedNewsEngine.getAllRedEvents();
-  
-  let displayEvents = allEvents.filter(e => e.date === todayStr);
-  if (!displayEvents.length) {
-    displayEvents = allEvents.filter(e => new Date(`${e.date}T${e.time}:00`) > now).slice(0, 3);
-  }
-
-  if (!displayEvents.length) {
-    bodyEl.innerHTML = `<div style="color:var(--muted); font-size:0.8rem; padding:8px 0; line-height:1.5;">
-      No upcoming events. Open the <button onclick="openRedNewsModal()" style="background:none;border:none;color:var(--blue);cursor:pointer;font-size:0.8rem;padding:0;text-decoration:underline;">News Calendar</button> to add real red-folder events from ForexFactory.
-    </div>`;
-    return;
-  }
-
-  bodyEl.innerHTML = displayEvents.map(evt => {
-    const currClass = evt.currency.toLowerCase();
-    const actualText = evt.actual ? `Actual: ${safe(evt.actual)}` : `Est: ${safe(evt.forecast || "—")}`;
-    const dateLabel = evt.date === todayStr ? evt.time : `${evt.date.slice(5)} ${evt.time}`;
-    return `
-      <div class="bento-news-row" onclick="window.openRedNewsModal()" style="cursor:pointer;">
-        <div style="display:flex; align-items:center; gap:8px;">
-          <span class="badge-currency ${currClass}">${safe(evt.currency)}</span>
-          <span class="red-folder-icon">🔴</span>
-          <strong>${safe(evt.title)}</strong>
-        </div>
-        <div style="display:flex; align-items:center; gap:12px;">
-          <span style="font-size:0.78rem; color:var(--muted);">${actualText}</span>
-          <strong style="color:var(--text);">${safe(dateLabel)}</strong>
-        </div>
-      </div>
-    `;
-  }).join("");
-}
-
-function checkTradeFormNewsRisk() {
-  const form = document.getElementById("tradeForm");
-  const alertEl = document.getElementById("tradeFormNewsAlert");
-  const titleEl = document.getElementById("tradeFormNewsTitle");
-  const metaEl = document.getElementById("tradeFormNewsMeta");
-  if (!form || !alertEl || !window.forexFactoryRedNewsEngine) return;
-
-  const dateVal = form.date?.value || form.openTime?.value || "";
-  if (!dateVal) {
-    alertEl.classList.add("hidden");
-    return;
-  }
-
-  const nearNews = window.forexFactoryRedNewsEngine.isTradeNearRedNews(dateVal);
-  if (nearNews) {
-    const evt = nearNews.event;
-    alertEl.classList.remove("hidden");
-    if (titleEl) titleEl.textContent = `🔴 ${evt.currency} High Impact Event (${evt.title})`;
-    if (metaEl) {
-      if (nearNews.isAllDay) {
-        metaEl.textContent = `High-impact event scheduled for today (${evt.date}) — All Day / Tentative timing.`;
-      } else if (nearNews.sameDay) {
-        metaEl.textContent = `Red folder news scheduled for ${evt.date} at ${evt.time}.`;
-      } else {
-        metaEl.textContent = `Trade logged within ${nearNews.diffMins} minutes of ${evt.title} (${evt.time}).`;
-      }
-    }
-  } else {
-    alertEl.classList.add("hidden");
-  }
-}
+// News features currently disabled
+window.openRedNewsModal = function() {};
+window.closeRedNewsModal = function() {};
+window.renderRedNewsTable = function() {};
+window.renderHomeRedNewsWidget = function() {};
+window.syncFFNews = function() {};
+window.clearPastNews = function() {};
 
 function openCommandPaletteModal() {
   const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;

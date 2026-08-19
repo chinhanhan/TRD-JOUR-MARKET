@@ -1,6 +1,11 @@
 // TRD Journey SaaS - Firebase Authentication, Profile & Stripe/TNG Commercial Controller
 (function() {
-  const STRIPE_CHECKOUT_URL = "https://buy.stripe.com/fZu14n5kJd6721W8ZFdj000";
+  const STRIPE_LINKS = {
+    monthly: "https://buy.stripe.com/fZu14n5kJdG721W8ZFdjO00",
+    quarterly: "https://buy.stripe.com/aFa8wP28x31t8qka3JdjO02",
+    yearly: "https://buy.stripe.com/4gMdR9fZn6dFcGAejZdjO03",
+    lifetime: "https://buy.stripe.com/8x25kD8wV45xeOI7VBdjO01"
+  };
 
   // Valid VIP Redeem Code patterns for manual approval (e.g. TNG transfer or promotions)
   const VALID_REDEEM_KEYS = [
@@ -14,19 +19,22 @@
   const AuthState = {
     currentUser: null,
     profile: null,
-    subscription: { plan: 'free', status: 'active', limit: 20 },
+    subscription: { plan: 'free', status: 'active', limit: 20, trialUntil: null },
     currentTab: 'signin',
     isInitialized: false
   };
 
   window.TRDAuth = {
     init() {
+      this.bindDOM();
+      this.applyProFeatureGating();
+      this.updateQuotaBadge();
+
       if (!window.fbAuth) {
         console.warn("⚠️ Firebase Auth not available yet.");
         return;
       }
 
-      this.bindDOM();
       this.listenAuth();
     },
 
@@ -60,6 +68,14 @@
           if (e.target === upgradeModal) this.closeUpgradeModal();
         });
       }
+
+      // Escape Key to Close Modals
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          this.closeModal();
+          this.closeUpgradeModal();
+        }
+      });
 
       // Tab Switching
       const tabSignIn = document.getElementById('authTabSignIn');
@@ -114,8 +130,14 @@
           // Handle Pending Upgrade Intent from Landing Page
           if (sessionStorage.getItem('trd_pending_upgrade') === 'true') {
             sessionStorage.removeItem('trd_pending_upgrade');
+            const pendingTier = sessionStorage.getItem('trd_pending_tier');
+            if (pendingTier) {
+              AuthState.selectedTier = pendingTier;
+              sessionStorage.removeItem('trd_pending_tier');
+            }
             setTimeout(() => {
               this.openUpgradeModal();
+              if (pendingTier) this.selectUpgradeTier(pendingTier);
             }, 600);
           }
         } else {
@@ -157,7 +179,7 @@
         const docSnap = await userDocRef.get();
 
         // Check if user returned from successful Stripe payment
-        const isPaymentSuccess = window.location.search.includes('upgrade=success') || window.location.search.includes('payment=success');
+        const isPaymentSuccess = window.location.search.includes('upgrade=success') || window.location.search.includes('payment=success') || window.location.search.includes('session_id=');
 
         if (docSnap.exists) {
           AuthState.profile = docSnap.data();
@@ -180,37 +202,69 @@
           AuthState.profile = initialProfile;
           AuthState.subscription = initialProfile.subscription || { plan: 'free', limit: 20 };
 
-          // 30-Day Auto-Expiration Check for Pro Subscriptions (Stripe & TNG)
-          if (AuthState.subscription.plan === 'pro' && AuthState.subscription.validUntil) {
+          // Auto-Expiration Check for Pro Subscriptions (Stripe & TNG, Skip Lifetime)
+          const isLifetime = AuthState.subscription.tier === 'lifetime' || (AuthState.subscription.validUntil && new Date(AuthState.subscription.validUntil).getFullYear() > 2090);
+          if (!isLifetime && AuthState.subscription.plan === 'pro' && AuthState.subscription.validUntil) {
             const expiryTime = new Date(AuthState.subscription.validUntil).getTime();
             if (Date.now() > expiryTime) {
-              console.log("⏰ [TRD Auth] Pro subscription has expired after 30 days. Auto-locking to Free tier.");
+              console.log("⏰ [TRD Auth] Pro subscription has expired. Auto-locking to Free tier.");
               AuthState.subscription.plan = 'free';
               AuthState.subscription.status = 'expired';
               AuthState.subscription.limit = 20;
 
-              await userDocRef.set({
-                subscription: AuthState.subscription
-              }, { merge: true });
             }
           }
         }
 
-        // Activate Pro if returning from Stripe checkout (30-day recurring period)
-        if (isPaymentSuccess && AuthState.subscription.plan !== 'pro') {
+        // Activate or Extend Pro if returning from Stripe checkout (Multi-Tier Duration Handling)
+        if (isPaymentSuccess) {
           const now = new Date();
-          const validUntil = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+          const paidTier = localStorage.getItem('trd_pending_checkout_tier') || 'lifetime';
+          localStorage.removeItem('trd_pending_checkout_tier');
+
+          let validUntil = '2099-12-31T23:59:59.999Z';
+          let successMsg = "🎉 Congratulations! Your TRD Journey Founder Lifetime Pass is now ACTIVE! 👑";
+
+          if (paidTier === 'monthly') {
+            const baseTime = (AuthState.subscription.validUntil && new Date(AuthState.subscription.validUntil).getTime() > now.getTime())
+              ? new Date(AuthState.subscription.validUntil).getTime()
+              : now.getTime();
+            validUntil = new Date(baseTime + 30 * 24 * 60 * 60 * 1000).toISOString();
+            successMsg = "🎉 Your TRD Journey Pro Monthly subscription is active! 30 days added.";
+          } else if (paidTier === 'quarterly') {
+            const baseTime = (AuthState.subscription.validUntil && new Date(AuthState.subscription.validUntil).getTime() > now.getTime())
+              ? new Date(AuthState.subscription.validUntil).getTime()
+              : now.getTime();
+            validUntil = new Date(baseTime + 90 * 24 * 60 * 60 * 1000).toISOString();
+            successMsg = "🎉 Congratulations! Your TRD Journey Quarterly Pro is active! 90 days added.";
+          } else if (paidTier === 'yearly') {
+            const baseTime = (AuthState.subscription.validUntil && new Date(AuthState.subscription.validUntil).getTime() > now.getTime())
+              ? new Date(AuthState.subscription.validUntil).getTime()
+              : now.getTime();
+            validUntil = new Date(baseTime + 365 * 24 * 60 * 60 * 1000).toISOString();
+            successMsg = "🎉 Congratulations! Your TRD Journey Annual Pro is active! 365 days added.";
+          }
 
           AuthState.subscription = {
             plan: 'pro',
+            tier: paidTier,
             status: 'active',
             limit: 999999,
-            subscribedAt: now.toISOString(),
+            subscribedAt: AuthState.subscription.subscribedAt || now.toISOString(),
             validUntil: validUntil,
             provider: 'stripe'
           };
           await userDocRef.set({ subscription: AuthState.subscription }, { merge: true });
-          alert("🎉 Congratulations! Your TRD Journey Early Bird Pro subscription is now ACTIVE!");
+          
+          if (typeof confetti === 'function') {
+            confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+          }
+          if (window.toast) {
+            window.toast(successMsg, "win");
+          } else {
+            alert(successMsg);
+          }
+
           window.history.replaceState({}, document.title, window.location.pathname);
         }
       } catch (err) {
@@ -245,15 +299,39 @@
       if (userEmailEl) userEmailEl.textContent = user.email;
       if (dropdownEmail) dropdownEmail.textContent = user.email;
 
+      // UI gating: hide premium features for free users
+      const premiumFeatures = document.querySelectorAll('.premium-feature');
       const isPro = AuthState.subscription.plan === 'pro';
-      if (userPlanBadge) {
-        userPlanBadge.className = `user-plan-badge ${isPro ? 'pro' : 'free'}`;
-        userPlanBadge.textContent = isPro ? 'PRO' : 'FREE';
-      }
-      if (dropdownPlan) {
-        dropdownPlan.textContent = isPro ? 'Plan: Pro Member ⭐' : 'Plan: Free (20 Limit)';
+      const isLifetime = isPro && (AuthState.subscription.tier === 'lifetime' || (AuthState.subscription.validUntil && new Date(AuthState.subscription.validUntil).getFullYear() > 2090));
+
+      if (isPro) {
+        premiumFeatures.forEach(el => el.style.display = '');
+      } else {
+        premiumFeatures.forEach(el => el.style.display = 'none');
       }
 
+      if (userPlanBadge) {
+        userPlanBadge.className = `user-plan-badge ${isPro ? (isLifetime ? 'pro lifetime' : 'pro') : 'free'}`;
+        userPlanBadge.textContent = isLifetime ? 'LIFETIME' : (isPro ? 'PRO' : 'FREE');
+      }
+      if (dropdownPlan) {
+        dropdownPlan.textContent = isLifetime ? 'Plan: Founder Lifetime 👑' : (isPro ? 'Plan: Pro Member ⭐' : 'Plan: Free (20 Limit)');
+      }
+
+      const dropdownUpgradeBtn = document.querySelector('#userDropdownCard .open-upgrade-trigger');
+      if (dropdownUpgradeBtn) {
+        if (isLifetime) {
+          dropdownUpgradeBtn.style.display = 'none';
+        } else if (isPro) {
+          dropdownUpgradeBtn.style.display = '';
+          dropdownUpgradeBtn.textContent = '👑 Upgrade to Lifetime (RM199)';
+        } else {
+          dropdownUpgradeBtn.style.display = '';
+          dropdownUpgradeBtn.textContent = '⭐ Upgrade to Pro / Lifetime';
+        }
+      }
+
+      this.applyProFeatureGating();
       this.updateQuotaBadge();
     },
 
@@ -262,20 +340,23 @@
       if (!quotaBadge) return;
 
       const isPro = AuthState.subscription.plan === 'pro';
+      const isLifetime = isPro && (AuthState.subscription.tier === 'lifetime' || (AuthState.subscription.validUntil && new Date(AuthState.subscription.validUntil).getFullYear() > 2090));
       const tradeCount = (window.state && Array.isArray(window.state.trades)) ? window.state.trades.length : 0;
-      const limit = AuthState.subscription.limit || 20;
+      const limit = 20;
 
       const renewalBanner = document.getElementById('headerRenewalNotice');
       const renewalDaysEl = document.getElementById('renewalNoticeDaysText');
 
+      this.applyProFeatureGating();
+
       if (isPro) {
-        quotaBadge.className = 'quota-pill pro';
-        quotaBadge.innerHTML = '⭐ Pro Active';
-        quotaBadge.title = 'Unlimited Trade Logs';
+        quotaBadge.className = `quota-pill pro ${isLifetime ? 'lifetime' : ''}`;
+        quotaBadge.innerHTML = isLifetime ? '👑 Lifetime Pro' : '⭐ Pro Active';
+        quotaBadge.title = isLifetime ? 'Founder Lifetime - Unlimited Trade Logs' : 'Unlimited Trade Logs';
         quotaBadge.onclick = null;
 
-        // Check if expiring within 3 days
-        if (AuthState.subscription.validUntil && renewalBanner) {
+        // Check if expiring within 3 days (only for non-lifetime members)
+        if (!isLifetime && AuthState.subscription.validUntil && renewalBanner) {
           const daysLeft = Math.ceil((new Date(AuthState.subscription.validUntil).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
           if (daysLeft <= 3 && daysLeft >= 0) {
             renewalBanner.style.display = 'flex';
@@ -295,7 +376,7 @@
         const isNearLimit = tradeCount >= (limit - 3);
         const isMaxed = tradeCount >= limit;
         quotaBadge.className = `quota-pill free ${isMaxed ? 'maxed' : (isNearLimit ? 'warning' : '')}`;
-        quotaBadge.innerHTML = `📊 ${tradeCount}/${limit} Trades`;
+        quotaBadge.innerHTML = isMaxed ? `📊 ${tradeCount}/${limit} Full` : `📊 ${tradeCount}/${limit} Trades`;
         quotaBadge.title = `${tradeCount} of ${limit} free trades used. Click to upgrade.`;
         quotaBadge.onclick = () => this.openUpgradeModal();
       }
@@ -304,7 +385,7 @@
     handleQuickRenewWhatsApp() {
       const user = this.getUser();
       const email = user ? user.email : 'Pro Member';
-      const msg = encodeURIComponent(`Hi TRD Journey, I want to renew my Pro Early Bird membership (RM19) via Touch 'n Go / DuitNow QR.\n\nMy Account Email: ${email}`);
+      const msg = encodeURIComponent(`Hi TRD Journey, I want to renew my TRD Journey Pro membership via Touch 'n Go / DuitNow QR.\n\nMy Account Email: ${email}`);
       window.open(`https://wa.me/601126633131?text=${msg}`, '_blank');
     },
 
@@ -323,23 +404,38 @@
 
       if (authAnonSection) authAnonSection.style.display = 'flex';
       if (authUserSection) authUserSection.style.display = 'none';
+
+      this.applyProFeatureGating();
     },
 
     openModal(tab = 'signin') {
       this.switchTab(tab);
       const modal = document.getElementById('authModalBackdrop');
-      if (modal) modal.classList.add('active');
+      if (modal) {
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+      }
       this.clearError();
     },
 
     closeModal() {
       const modal = document.getElementById('authModalBackdrop');
-      if (modal) modal.classList.remove('active');
+      if (modal) {
+        modal.classList.remove('active');
+        if (!document.getElementById('upgradeModalBackdrop')?.classList.contains('active')) {
+          document.body.style.overflow = '';
+        }
+      }
     },
 
-    openUpgradeModal() {
+    openUpgradeModal(targetTier = null) {
       const modal = document.getElementById('upgradeModalBackdrop');
-      if (modal) modal.classList.add('active');
+      if (modal) {
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+      }
+
+      this.selectUpgradeTier(targetTier || AuthState.selectedTier || 'lifetime');
 
       // Dynamically populate value review report card
       const trades = (window.state && Array.isArray(window.state.trades)) ? window.state.trades : [];
@@ -365,7 +461,12 @@
 
     closeUpgradeModal() {
       const modal = document.getElementById('upgradeModalBackdrop');
-      if (modal) modal.classList.remove('active');
+      if (modal) {
+        modal.classList.remove('active');
+        if (!document.getElementById('authModalBackdrop')?.classList.contains('active')) {
+          document.body.style.overflow = '';
+        }
+      }
     },
 
     switchUpgradeTab(tab) {
@@ -387,20 +488,95 @@
       }
     },
 
-    startProUpgradeIntent() {
+    startProUpgradeIntent(tier) {
+      if (tier) {
+        AuthState.selectedTier = tier;
+      }
       const user = this.getUser();
       if (user) {
         this.openUpgradeModal();
+        if (tier) this.selectUpgradeTier(tier);
       } else {
         sessionStorage.setItem('trd_pending_upgrade', 'true');
+        if (tier) sessionStorage.setItem('trd_pending_tier', tier);
         this.openModal('signup');
+      }
+    },
+
+    selectUpgradeTier(tier) {
+      AuthState.selectedTier = tier || 'lifetime';
+
+      const tierMonthly = document.getElementById('pricingTierMonthly');
+      const tierQuarterly = document.getElementById('pricingTierQuarterly');
+      const tierYearly = document.getElementById('pricingTierYearly');
+      const tierLifetime = document.getElementById('pricingTierLifetime');
+
+      if (tierMonthly) tierMonthly.classList.toggle('active', tier === 'monthly');
+      if (tierQuarterly) tierQuarterly.classList.toggle('active', tier === 'quarterly');
+      if (tierYearly) tierYearly.classList.toggle('active', tier === 'yearly');
+      if (tierLifetime) tierLifetime.classList.toggle('active', tier === 'lifetime');
+
+      // Update Stripe Section
+      const stripeTitle = document.getElementById('upgradeStripePlanTitle');
+      const stripePrice = document.getElementById('upgradeStripePlanPrice');
+      const stripeUnit = document.getElementById('upgradeStripePlanPriceUnit');
+      const stripeBtn = document.getElementById('upgradeSubmitBtn');
+
+      // Update TNG Section
+      const tngPrice = document.getElementById('upgradeTngPrice');
+      const tngPlanName = document.getElementById('upgradeTngPlanName');
+      const tngBtn = document.getElementById('upgradeTngWhatsAppBtn');
+
+      if (tier === 'monthly') {
+        if (stripeTitle) stripeTitle.textContent = 'Monthly Pro';
+        if (stripePrice) stripePrice.textContent = 'RM 19';
+        if (stripeUnit) stripeUnit.textContent = ' / month';
+        if (stripeBtn) stripeBtn.textContent = 'Lock in Monthly RM19/mo →';
+
+        if (tngPrice) tngPrice.textContent = 'RM 19.00';
+        if (tngPlanName) tngPlanName.textContent = 'Monthly Pro (RM 19/mo)';
+        if (tngBtn) tngBtn.textContent = '📲 WhatsApp Receipt (RM 19 Monthly) →';
+      } else if (tier === 'quarterly') {
+        if (stripeTitle) stripeTitle.textContent = 'Quarterly Pro Trader (Save 15%)';
+        if (stripePrice) stripePrice.textContent = 'RM 49';
+        if (stripeUnit) stripeUnit.textContent = ' / 3 months (RM16.33/mo)';
+        if (stripeBtn) stripeBtn.textContent = 'Claim Quarterly Pro RM49/3mo →';
+
+        if (tngPrice) tngPrice.textContent = 'RM 49.00';
+        if (tngPlanName) tngPlanName.textContent = 'Quarterly Pro (RM 49 / 3-Months)';
+        if (tngBtn) tngBtn.textContent = '📲 WhatsApp Receipt (RM 49 Quarterly) →';
+      } else if (tier === 'yearly') {
+        if (stripeTitle) stripeTitle.textContent = 'Annual Pro Trader (Save 30%)';
+        if (stripePrice) stripePrice.textContent = 'RM 159';
+        if (stripeUnit) stripeUnit.textContent = ' / year (RM13.25/mo)';
+        if (stripeBtn) stripeBtn.textContent = 'Claim Annual Pro RM159/yr →';
+
+        if (tngPrice) tngPrice.textContent = 'RM 159.00';
+        if (tngPlanName) tngPlanName.textContent = 'Annual Pro (RM 159 / Year - Save 30%)';
+        if (tngBtn) tngBtn.textContent = '📲 WhatsApp Receipt (RM 159 Annual) →';
+      } else { // 'lifetime'
+        if (stripeTitle) stripeTitle.textContent = '👑 Founder Lifetime Pass (Limited 100 Seats)';
+        if (stripePrice) stripePrice.textContent = 'RM 199';
+        if (stripeUnit) stripeUnit.textContent = ' One-Time Buyout (Never Pay Again)';
+        if (stripeBtn) stripeBtn.textContent = '🔥 Claim Founder Lifetime RM199 (One-Time) →';
+
+        if (tngPrice) tngPrice.textContent = 'RM 199.00';
+        if (tngPlanName) tngPlanName.textContent = '👑 Founder Lifetime (RM 199 One-Time)';
+        if (tngBtn) tngBtn.textContent = '🔥 WhatsApp Receipt (RM 199 Founder Lifetime) →';
       }
     },
 
     handleTngWhatsAppClick() {
       const user = this.getUser();
       const email = user ? user.email : 'Guest';
-      const msg = encodeURIComponent(`Hi TRD Journey, I have transferred RM19 via Touch 'n Go / DuitNow to activate PRO.\nAccount Email: ${email}`);
+      const tier = AuthState.selectedTier || 'lifetime';
+
+      let planText = "👑 Founder Lifetime Plan (RM199 One-Time - Limited 100 Seats)";
+      if (tier === 'monthly') planText = "Monthly Pro Plan (RM19/month)";
+      else if (tier === 'quarterly') planText = "Quarterly Pro Plan (RM49/3-months)";
+      else if (tier === 'yearly') planText = "Annual Pro Plan (RM159/year - Save 30%)";
+
+      const msg = encodeURIComponent(`Hi TRD Journey, I have transferred via Touch 'n Go / DuitNow for the ${planText}.\nAccount Email: ${email}`);
       window.open(`https://wa.me/601126633131?text=${msg}`, '_blank');
     },
 
@@ -473,14 +649,48 @@
           }
         }
 
+        const isLifetimeKey = enteredKey.includes('LIFETIME') || enteredKey.includes('FOREVER') || enteredKey.includes('FOUNDER');
+        const isAnnualKey = enteredKey.includes('YEAR') || enteredKey.includes('ANNUAL');
+        const isQuarterlyKey = enteredKey.includes('QUARTER') || enteredKey.includes('QTR');
+
         const now = new Date();
-        const validUntil = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+        let validUntil = '2099-12-31T23:59:59.999Z';
+        let keyTier = 'lifetime';
+        let successNotice = '🎉 VIP Key Redeemed! You now have Founder Lifetime Access! 👑';
+
+        if (isLifetimeKey) {
+          validUntil = '2099-12-31T23:59:59.999Z';
+          keyTier = 'lifetime';
+          successNotice = '🎉 VIP Key Redeemed! You now have Founder Lifetime Access! 👑';
+        } else if (isAnnualKey) {
+          const baseTime = (AuthState.subscription.validUntil && new Date(AuthState.subscription.validUntil).getTime() > now.getTime())
+            ? new Date(AuthState.subscription.validUntil).getTime()
+            : now.getTime();
+          validUntil = new Date(baseTime + 365 * 24 * 60 * 60 * 1000).toISOString();
+          keyTier = 'yearly';
+          successNotice = '🎉 VIP Key Redeemed! 365 Days of Annual Pro Access added!';
+        } else if (isQuarterlyKey) {
+          const baseTime = (AuthState.subscription.validUntil && new Date(AuthState.subscription.validUntil).getTime() > now.getTime())
+            ? new Date(AuthState.subscription.validUntil).getTime()
+            : now.getTime();
+          validUntil = new Date(baseTime + 90 * 24 * 60 * 60 * 1000).toISOString();
+          keyTier = 'quarterly';
+          successNotice = '🎉 VIP Key Redeemed! 90 Days of Quarterly Pro Access added!';
+        } else {
+          const baseTime = (AuthState.subscription.validUntil && new Date(AuthState.subscription.validUntil).getTime() > now.getTime())
+            ? new Date(AuthState.subscription.validUntil).getTime()
+            : now.getTime();
+          validUntil = new Date(baseTime + 30 * 24 * 60 * 60 * 1000).toISOString();
+          keyTier = 'monthly';
+          successNotice = '🎉 VIP Key Redeemed! 30 Days of Pro Access added!';
+        }
 
         AuthState.subscription = {
           plan: 'pro',
+          tier: keyTier,
           status: 'active',
           limit: 999999,
-          subscribedAt: now.toISOString(),
+          subscribedAt: AuthState.subscription.subscribedAt || now.toISOString(),
           validUntil: validUntil,
           provider: 'redeem_code',
           redeemKey: enteredKey
@@ -491,6 +701,7 @@
           const keyDocRef = window.fbDb.collection('redeemed_keys').doc(enteredKey);
           await keyDocRef.set({
             key: enteredKey,
+            tier: keyTier,
             usedBy: user.uid,
             userEmail: user.email,
             usedAt: now.toISOString(),
@@ -501,8 +712,12 @@
           await userDocRef.set({ subscription: AuthState.subscription }, { merge: true });
         }
 
+        if (typeof confetti === 'function') {
+          confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+        }
+
         feedbackEl.style.color = '#30d158';
-        feedbackEl.innerHTML = '🎉 <strong>PRO Activated Successfully!</strong> 30 days unlimited trades unlocked.';
+        feedbackEl.innerHTML = successNotice;
         this.renderAuthenticatedUI(user);
         setTimeout(() => this.closeUpgradeModal(), 2000);
       } catch (e) {
@@ -516,13 +731,40 @@
       if (!user) {
         this.closeUpgradeModal();
         sessionStorage.setItem('trd_pending_upgrade', 'true');
+        sessionStorage.setItem('trd_pending_tier', AuthState.selectedTier || 'lifetime');
         this.openModal('signup');
         return;
       }
       
+      const currentTier = AuthState.selectedTier || 'lifetime';
+      localStorage.setItem('trd_pending_checkout_tier', currentTier);
+
       const email = encodeURIComponent(user.email || '');
       const uid = encodeURIComponent(user.uid || '');
-      const checkoutUrl = `${STRIPE_CHECKOUT_URL}?prefilled_email=${email}&client_reference_id=${uid}`;
+      
+      const customLink = STRIPE_LINKS[currentTier] || STRIPE_LINKS.lifetime;
+      const isPlaceholder = !customLink || !customLink.startsWith("https://buy.stripe.com/") || customLink.includes('example.com');
+
+      if (isPlaceholder) {
+        // Safe Fallback: If live Stripe link is not yet set, route smoothly to WhatsApp direct line for instant payment link / VIP key
+        let planText = "👑 Founder Lifetime Pass (RM 199 One-Time Buyout)";
+        if (currentTier === 'monthly') planText = "Monthly Pro Plan (RM 19/mo)";
+        else if (currentTier === 'quarterly') planText = "Quarterly Pro Plan (RM 49/3mo)";
+        else if (currentTier === 'yearly') planText = "Annual Pro Plan (RM 159/yr)";
+
+        const msg = encodeURIComponent(`Hi Han! I would like to upgrade to TRD Journey: ${planText}.\nPayment Method: Card / Apple Pay / Online Banking / TNG\nAccount Email: ${user.email || 'Trader'}\nUser ID: ${user.uid || ''}\nPlease send me the payment link or VIP key!`);
+        
+        window.open(`https://wa.me/601126633131?text=${msg}`, '_blank');
+        
+        // Also seamlessly toggle to Touch 'n Go & QR section inside modal
+        this.switchUpgradeTab('tng');
+        if (window.toast) {
+          window.toast("💬 WhatsApp direct payment opened! You can also scan the QR code to pay instantly.", "success");
+        }
+        return;
+      }
+
+      const checkoutUrl = `${customLink}?prefilled_email=${email}&client_reference_id=${uid}`;
 
       // Smooth feedback
       const upgradeBtn = document.getElementById('upgradeSubmitBtn');
@@ -631,12 +873,20 @@
     canCreateTrade(currentTradeCount) {
       // Check if user is logged in
       if (!AuthState.currentUser) {
-        this.openModal('signup');
-        return false;
+        const count = currentTradeCount ?? (window.state?.trades || []).length;
+        if (count >= 20) {
+          this.openModal('signup');
+          if (window.toast) {
+            window.toast("📊 Guest capacity full (20 trades). Sign in to unlock cloud sync.", "warning");
+          }
+          return false;
+        }
+        return true;
       }
 
-      // Real-time 30-Day Auto-Expiration Check before logging ANY trade
-      if (AuthState.subscription.plan === 'pro' && AuthState.subscription.validUntil) {
+      // Real-time Auto-Expiration Check before logging ANY trade (Skip if Lifetime member)
+      const isLifetime = AuthState.subscription.tier === 'lifetime' || (AuthState.subscription.validUntil && new Date(AuthState.subscription.validUntil).getFullYear() > 2090);
+      if (!isLifetime && AuthState.subscription.plan === 'pro' && AuthState.subscription.validUntil) {
         const expiryTime = new Date(AuthState.subscription.validUntil).getTime();
         if (Date.now() > expiryTime) {
           console.log("⏰ Pro subscription expired. Downgrading to Free tier.");
@@ -652,7 +902,7 @@
 
           this.updateQuotaBadge();
           if (window.toast) {
-            window.toast("⏰ Your 30-day Pro subscription has ended. Please renew to unlock unlimited logging.", "warning");
+            window.toast("⏰ Your Pro subscription has ended. Please renew to unlock unlimited logging.", "warning");
           }
           this.openUpgradeModal();
           return false;
@@ -662,13 +912,54 @@
       // If Pro member, unlimited
       if (AuthState.subscription.plan === 'pro') return true;
 
-      // If Free member, limit to 20 trades
+      // Hard limit for free tier (20 trades)
       const limit = AuthState.subscription.limit || 20;
-      if (currentTradeCount >= limit) {
+      if (AuthState.subscription.plan === 'free' && currentTradeCount >= limit) {
         this.openUpgradeModal();
+        if (window.toast) {
+          window.toast("📊 Free capacity full (20/20 trades). Upgrade to Pro for unlimited journaling.", "warning");
+        }
         return false;
       }
+
       return true;
+    },
+
+    applyProFeatureGating() {
+      const isPro = AuthState.subscription.plan === 'pro';
+      
+      // Pro-locked panels in Review module
+      const proPanelIds = ['sessionHeatmapCard', 'maeMfeScatterPanel', 'monteCarloPanel'];
+      proPanelIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        
+        let overlay = el.querySelector('.pro-lock-overlay');
+        if (isPro) {
+          el.classList.remove('pro-feature-locked-container', 'is-locked');
+          if (overlay) overlay.remove();
+        } else {
+          el.classList.add('pro-feature-locked-container', 'is-locked');
+          if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.className = 'pro-lock-overlay';
+            overlay.innerHTML = `
+              <div class="pro-lock-badge">⭐ PRO EXCLUSIVE</div>
+              <div class="pro-lock-title">Unlock Deep Quantitative Edge Diagnostics</div>
+              <div class="pro-lock-sub">Gain instant visibility into your highest-expectancy trading sessions, MAE/MFE stop-loss retention, and Monte Carlo probability trials.</div>
+              <button class="pro-lock-btn" type="button" onclick="window.TRDAuth.openUpgradeModal()">Unlock Pro & Lifetime Pass →</button>
+            `;
+            el.appendChild(overlay);
+          }
+        }
+      });
+
+      // If just upgraded to Pro, trigger real-time re-render of quantitative charts
+      if (isPro) {
+        if (typeof window.executeAndRenderMonteCarlo === 'function') window.executeAndRenderMonteCarlo();
+        if (typeof window.renderSessionHeatmap === 'function') window.renderSessionHeatmap();
+        if (typeof window.renderMaeMfeScatter === 'function') window.renderMaeMfeScatter();
+      }
     },
 
     showError(msg) {

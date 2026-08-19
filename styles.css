@@ -4105,7 +4105,7 @@ body, .panel, .workflow-tile, .metric-item, .dock-item, .app-header, input, sele
   font-size: 0.92rem !important;
   border-radius: 12px !important;
   border: 1px solid var(--hairline) !important;
-  background: rgba(255, 255, 255, 0.72) !important;
+  background-color: rgba(255, 255, 255, 0.72) !important;
   color: var(--ink) !important;
   outline: none !important;
   transition: border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease !important;
@@ -4113,7 +4113,7 @@ body, .panel, .workflow-tile, .metric-item, .dock-item, .app-header, input, sele
 [data-theme="dark"] .form-group input:not([type="checkbox"]):not([type="radio"]),
 [data-theme="dark"] .form-group select,
 [data-theme="dark"] .form-group textarea {
-  background: rgba(28, 28, 30, 0.72) !important;
+  background-color: rgba(28, 28, 30, 0.72) !important;
   border-color: rgba(255, 255, 255, 0.12) !important;
 }
 .form-group select {
@@ -4508,10 +4508,10 @@ body, .panel, .workflow-tile, .metric-item, .dock-item, .app-header, input, sele
 .xp-status-panel {
   position: relative;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.72) !important;
+  background-color: rgba(255, 255, 255, 0.72) !important;
 }
 [data-theme="dark"] .xp-status-panel {
-  background: rgba(28, 28, 30, 0.72) !important;
+  background-color: rgba(28, 28, 30, 0.72) !important;
 }
 .xp-rainbow-glow {
   position: absolute;

@@ -283,6 +283,32 @@
       if (modal) modal.classList.remove('active');
     },
 
+    switchUpgradeTab(tab) {
+      const tabStripe = document.getElementById('upgradeTabStripe');
+      const tabTng = document.getElementById('upgradeTabTng');
+      const secStripe = document.getElementById('upgradeStripeSection');
+      const secTng = document.getElementById('upgradeTngSection');
+
+      if (tab === 'stripe') {
+        if (tabStripe) tabStripe.classList.add('active');
+        if (tabTng) tabTng.classList.remove('active');
+        if (secStripe) secStripe.style.display = 'block';
+        if (secTng) secTng.style.display = 'none';
+      } else {
+        if (tabStripe) tabStripe.classList.remove('active');
+        if (tabTng) tabTng.classList.add('active');
+        if (secStripe) secStripe.style.display = 'none';
+        if (secTng) secTng.style.display = 'block';
+      }
+    },
+
+    handleTngWhatsAppClick() {
+      const user = this.getUser();
+      const email = user ? user.email : 'Guest';
+      const msg = encodeURIComponent(`Hi TRD Journey, I have transferred RM19 via Touch 'n Go / DuitNow to activate PRO.\nAccount Email: ${email}`);
+      window.open(`https://wa.me/60127790020?text=${msg}`, '_blank');
+    },
+
     handleUpgradeClick() {
       const user = this.getUser();
       if (!user) {

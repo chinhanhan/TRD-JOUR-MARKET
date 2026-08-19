@@ -1,10 +1,11 @@
-// TRD Journey SaaS - Firebase Authentication & Profile Controller
+// TRD Journey SaaS - Firebase Authentication, Profile & Subscription Controller
 (function() {
   const AuthState = {
     currentUser: null,
     profile: null,
     subscription: { plan: 'free', status: 'active', limit: 30 },
-    currentTab: 'signin'
+    currentTab: 'signin',
+    isInitialized: false
   };
 
   window.TRDAuth = {
@@ -33,6 +34,19 @@
       if (backdrop) {
         backdrop.addEventListener('click', (e) => {
           if (e.target === backdrop) this.closeModal();
+        });
+      }
+
+      // Upgrade Modal Openers & Close
+      const upgradeBtns = document.querySelectorAll('.open-upgrade-trigger');
+      upgradeBtns.forEach(btn => btn.addEventListener('click', () => this.openUpgradeModal()));
+
+      const upgradeCloseBtn = document.getElementById('upgradeCloseBtn');
+      const upgradeModal = document.getElementById('upgradeModalBackdrop');
+      if (upgradeCloseBtn) upgradeCloseBtn.addEventListener('click', () => this.closeUpgradeModal());
+      if (upgradeModal) {
+        upgradeModal.addEventListener('click', (e) => {
+          if (e.target === upgradeModal) this.closeUpgradeModal();
         });
       }
 
@@ -73,6 +87,8 @@
     listenAuth() {
       window.fbAuth.onAuthStateChanged(async (user) => {
         AuthState.currentUser = user;
+        AuthState.isInitialized = true;
+
         if (user) {
           console.log("👤 [TRD Auth] User signed in:", user.email, user.uid);
           await this.loadUserProfile(user);
@@ -85,9 +101,33 @@
         } else {
           console.log("🚪 [TRD Auth] User signed out.");
           AuthState.profile = null;
+          AuthState.subscription = { plan: 'free', status: 'active', limit: 30 };
+          this.clearLocalUserData();
           this.renderAnonymousUI();
         }
       });
+    },
+
+    clearLocalUserData() {
+      // Clear in-memory trades and reset to clean state to prevent data leakage between users
+      if (window.state) {
+        window.state.trades = [];
+        window.state.sop = [];
+        window.state.accounts = [];
+        window.state.activeSopId = "";
+        window.state.activeAccountId = "";
+      }
+      try {
+        const STORAGE_KEY = "trd-journey-os-v1";
+        localStorage.removeItem(STORAGE_KEY);
+        if (window.idbSet) {
+          window.idbSet(STORAGE_KEY, null);
+        }
+      } catch (e) {}
+
+      if (typeof window.renderAll === "function") {
+        window.renderAll();
+      }
     },
 
     async loadUserProfile(user) {
@@ -122,11 +162,14 @@
     },
 
     renderAuthenticatedUI(user) {
-      // Hide Landing Page overlay if active, show App Shell
+      // Hide Landing Page overlay, show App Shell with smooth fade
       const landingOverlay = document.getElementById('landingPageOverlay');
       const appShell = document.getElementById('appShell');
       if (landingOverlay) landingOverlay.classList.remove('active');
-      if (appShell) appShell.style.display = 'flex';
+      if (appShell) {
+        appShell.style.display = 'flex';
+        appShell.style.opacity = '1';
+      }
 
       // Update Header Auth Bar
       const authAnonSection = document.getElementById('headerAuthAnon');
@@ -151,7 +194,7 @@
         userPlanBadge.textContent = isPro ? 'PRO' : 'FREE';
       }
       if (dropdownPlan) {
-        dropdownPlan.textContent = isPro ? 'Plan: Pro Member' : 'Plan: Free (30 Limit)';
+        dropdownPlan.textContent = isPro ? 'Plan: Pro Member ⭐' : 'Plan: Free (30 Limit)';
       }
     },
 
@@ -163,7 +206,10 @@
       const authUserSection = document.getElementById('headerAuthUser');
 
       if (landingOverlay) landingOverlay.classList.add('active');
-      if (appShell) appShell.style.display = 'none';
+      if (appShell) {
+        appShell.style.display = 'none';
+        appShell.style.opacity = '0';
+      }
 
       if (authAnonSection) authAnonSection.style.display = 'flex';
       if (authUserSection) authUserSection.style.display = 'none';
@@ -178,6 +224,16 @@
 
     closeModal() {
       const modal = document.getElementById('authModalBackdrop');
+      if (modal) modal.classList.remove('active');
+    },
+
+    openUpgradeModal() {
+      const modal = document.getElementById('upgradeModalBackdrop');
+      if (modal) modal.classList.add('active');
+    },
+
+    closeUpgradeModal() {
+      const modal = document.getElementById('upgradeModalBackdrop');
       if (modal) modal.classList.remove('active');
     },
 
@@ -272,6 +328,24 @@
       } catch (err) {
         console.error("Sign out error:", err);
       }
+    },
+
+    canCreateTrade(currentTradeCount) {
+      // Check if user is logged in
+      if (!AuthState.currentUser) {
+        this.openModal('signup');
+        return false;
+      }
+      // If Pro member, unlimited
+      if (AuthState.subscription.plan === 'pro') return true;
+
+      // If Free member, limit to 30 trades
+      const limit = AuthState.subscription.limit || 30;
+      if (currentTradeCount >= limit) {
+        this.openUpgradeModal();
+        return false;
+      }
+      return true;
     },
 
     showError(msg) {

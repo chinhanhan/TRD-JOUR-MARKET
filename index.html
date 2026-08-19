@@ -1919,6 +1919,39 @@
       </div>
     </div>
 
+    <!-- SaaS Pro Upgrade Modal (Triggered on 30 trade limit or Pro features) -->
+    <div class="auth-modal-backdrop" id="upgradeModalBackdrop">
+      <div class="auth-card" style="max-width: 480px;">
+        <button class="auth-close-btn" id="upgradeCloseBtn" type="button" aria-label="Close">✕</button>
+        <div class="auth-header">
+          <div class="auth-brand-badge" style="background: linear-gradient(135deg, #ff9f0a, #ff375f);">⭐</div>
+          <h3>Upgrade to Pro Trader</h3>
+          <p>You've reached your free 30-trade limit. Unlock unlimited cloud performance journaling.</p>
+        </div>
+
+        <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 14px; padding: 18px; margin-bottom: 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px;">
+            <span style="font-size: 16px; font-weight: 700; color: #fff;">Early Bird Pro (First 50)</span>
+            <div>
+              <span style="font-size: 24px; font-weight: 800; color: #ff9f0a;">RM 19</span>
+              <span style="font-size: 12px; color: #8e8e93;"> / month</span>
+            </div>
+          </div>
+          <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: #d1d1d6;">
+            <li><span style="color: #30d158; font-weight: bold;">✓</span> Unlimited Trade Logs (No 30-trade cap)</li>
+            <li><span style="color: #30d158; font-weight: bold;">✓</span> Cross-Device Real-Time Cloud Sync</li>
+            <li><span style="color: #30d158; font-weight: bold;">✓</span> Mistake Attribution & Equity Curve Analysis</li>
+            <li><span style="color: #30d158; font-weight: bold;">✓</span> Weekly Behavioral Review Reports</li>
+          </ul>
+        </div>
+
+        <button class="auth-submit-btn" type="button" style="background: linear-gradient(135deg, #ff9f0a, #ff375f); color: #fff;" onclick="alert('Payment Gateway Integration: Early bird spots will be unlocked via iPay88/Stripe.')">
+          Lock in Early Bird RM19/mo →
+        </button>
+        <p style="text-align: center; font-size: 11px; color: #8e8e93; margin-top: 10px;">Cancel anytime. No lock-in contracts.</p>
+      </div>
+    </div>
+
     <!-- Firebase Cloud SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>

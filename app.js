@@ -3142,6 +3142,16 @@ function editTrade(id) {
 async function saveTradeFromForm(event) {
   event.preventDefault();
   const form = event.currentTarget;
+
+  // SaaS Validation: Check if user is logged in & has remaining trade quota
+  const isNewTrade = !form.elements.id.value;
+  if (isNewTrade && window.TRDAuth && typeof window.TRDAuth.canCreateTrade === "function") {
+    const currentTradeCount = (state.trades || []).length;
+    if (!window.TRDAuth.canCreateTrade(currentTradeCount)) {
+      return;
+    }
+  }
+
   try {
     const imagePromises = Array.from(form.imageFile.files).map(file => fileToDataUrl(file));
     const imagesData = (await Promise.all(imagePromises)).filter(Boolean);

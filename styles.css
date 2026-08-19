@@ -151,7 +151,10 @@
 [data-theme="dark"] .calendar-day,
 [data-theme="dark"] .bar-row,
 [data-theme="dark"] .analytics-card,
-[data-theme="dark"] .histogram-bar {
+[data-theme="dark"] .histogram-bar,
+[data-theme="dark"] .maturity-card,
+[data-theme="dark"] .soft-disclosure,
+[data-theme="dark"] .mini-disclosure {
   background: linear-gradient(180deg, rgba(44, 44, 46, 0.8), rgba(28, 28, 30, 0.6));
 }
 
@@ -1861,6 +1864,12 @@ select option {
   border-color: var(--hairline-strong);
   box-shadow: var(--shadow-soft);
 }
+[data-theme="dark"] .soft-disclosure[open],
+[data-theme="dark"] .mini-disclosure[open] {
+  background: rgba(60, 60, 64, 0.8);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
 
 .soft-disclosure > summary,
 .mini-disclosure > summary {
@@ -4601,9 +4610,7 @@ body, .panel, .workflow-tile, .metric-item, .dock-item, .app-header, input, sele
 }
 
 /* 3. Daily Quests Panel & Tiles */
-.daily-quests-panel {
-  background: rgba(255, 255, 255, 0.6) !important;
-}
+
 .quests-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

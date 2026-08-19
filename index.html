@@ -2053,6 +2053,14 @@
       </div>
     </div>
 
+    <!-- Fullscreen 1080P K-line Chart Image Lightbox Modal -->
+    <div id="imageLightboxBackdrop" class="auth-modal-backdrop" style="backdrop-filter: blur(24px); background: rgba(0, 0, 0, 0.9); z-index: 10000; cursor: zoom-out; display: none;" onclick="window.closeImageLightbox()">
+      <div style="position: relative; max-width: 94vw; max-height: 94vh; display: flex; align-items: center; justify-content: center;" onclick="event.stopPropagation()">
+        <button class="auth-close-btn" style="position: absolute; top: -38px; right: 0; z-index: 10; color: #fff; background: rgba(255,255,255,0.15);" onclick="window.closeImageLightbox()">✕</button>
+        <img id="imageLightboxImg" src="" alt="Full Resolution Chart" style="max-width: 92vw; max-height: 88vh; border-radius: 12px; box-shadow: 0 25px 80px rgba(0,0,0,0.9); object-fit: contain; border: 1px solid rgba(255,255,255,0.12);" />
+      </div>
+    </div>
+
     <!-- Firebase Cloud SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>

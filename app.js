@@ -3478,8 +3478,36 @@ function openImage(id, index = 0) {
   const trade = state.trades.find((item) => item.id === id);
   const imgs = imagesFor(trade);
   if (!imgs[index]) return;
+
+  const modal = document.getElementById("imageLightboxBackdrop");
+  const img = document.getElementById("imageLightboxImg");
+  if (modal && img) {
+    img.src = imgs[index];
+    modal.style.display = "flex";
+    modal.classList.add("active");
+    return;
+  }
   openModal(`Screenshot ${index + 1} of ${imgs.length}`, "Image", `<img src="${imgs[index]}" alt="Chart screenshot" style="max-width:100%;" />`);
 }
+
+window.openImageLightbox = function(src) {
+  if (!src) return;
+  const modal = document.getElementById("imageLightboxBackdrop");
+  const img = document.getElementById("imageLightboxImg");
+  if (modal && img) {
+    img.src = src;
+    modal.style.display = "flex";
+    modal.classList.add("active");
+  }
+};
+
+window.closeImageLightbox = function() {
+  const modal = document.getElementById("imageLightboxBackdrop");
+  if (modal) {
+    modal.classList.remove("active");
+    modal.style.display = "none";
+  }
+};
 
 function embedTradingView(id) {
   const trade = state.trades.find((item) => item.id === id);
@@ -3997,10 +4025,15 @@ function updateInternalSelection(items) {
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
+    const lightboxBackdrop = document.getElementById("imageLightboxBackdrop");
     const backdrop = document.getElementById("modalBackdrop");
     const authBackdrop = document.getElementById("authModalBackdrop");
     const upgradeBackdrop = document.getElementById("upgradeModalBackdrop");
 
+    if (lightboxBackdrop && lightboxBackdrop.classList.contains("active")) {
+      if (window.closeImageLightbox) window.closeImageLightbox();
+      return;
+    }
     if (authBackdrop && authBackdrop.classList.contains("active")) {
       authBackdrop.classList.remove("active");
       return;
@@ -6285,6 +6318,51 @@ window.addEventListener("keydown", (e) => {
     if (activeSheets.length) {
       const topSheet = activeSheets[activeSheets.length - 1];
       if (topSheet.id) closeSheet(topSheet.id);
+    }
+  }
+});
+
+// 5. Global Clipboard Paste Listener (Cmd+V / Ctrl+V from TradingView)
+window.addEventListener("paste", async (e) => {
+  const activeTag = document.activeElement?.tagName?.toLowerCase();
+  if (activeTag === "input" || activeTag === "textarea") return;
+
+  const items = (e.clipboardData || window.clipboardData)?.items;
+  if (!items) return;
+
+  for (let i = 0; i < items.length; i++) {
+    if (items[i].type.indexOf("image") !== -1) {
+      const file = items[i].getAsFile();
+      if (!file) continue;
+
+      e.preventDefault();
+      if (window.openSheet) window.openSheet("tradeFormSheet");
+
+      try {
+        const base64 = await fileToDataUrl(file);
+        if (base64) {
+          const form = document.getElementById("tradeForm");
+          if (form) {
+            let container = document.getElementById("tradeFormUploadedImagesPreview");
+            if (!container) {
+              container = document.createElement("div");
+              container.id = "tradeFormUploadedImagesPreview";
+              container.style.cssText = "display:flex; gap:8px; overflow-x:auto; margin:10px 0; padding:4px;";
+              form.querySelector("input[name='imageUrl']")?.parentElement?.after(container);
+            }
+            const imgEl = document.createElement("img");
+            imgEl.src = base64;
+            imgEl.style.cssText = "height:70px; border-radius:8px; border:1px solid #30d158; box-shadow:0 4px 12px rgba(0,0,0,0.3);";
+            container.appendChild(imgEl);
+
+            if (window.toast) window.toast("📋 Chart screenshot pasted into journal!", "success");
+            if (typeof playSound === "function") playSound("bell");
+          }
+        }
+      } catch (err) {
+        console.error("Paste error:", err);
+      }
+      break;
     }
   }
 });

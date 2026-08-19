@@ -154,7 +154,8 @@
 [data-theme="dark"] .histogram-bar,
 [data-theme="dark"] .maturity-card,
 [data-theme="dark"] .soft-disclosure,
-[data-theme="dark"] .mini-disclosure {
+[data-theme="dark"] .mini-disclosure,
+[data-theme="dark"] .journey-balance {
   background: linear-gradient(180deg, rgba(44, 44, 46, 0.8), rgba(28, 28, 30, 0.6));
 }
 

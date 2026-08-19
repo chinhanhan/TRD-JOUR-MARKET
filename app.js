@@ -1,9 +1,9 @@
 window.onerror = function(msg, url, lineNo, columnNo, error) {
-  alert("GLOBAL ERROR: " + msg + "\nLine: " + lineNo);
+  console.error("GLOBAL ERROR: " + msg + "\nLine: " + lineNo);
   return false;
 };
 window.onunhandledrejection = function(event) {
-  alert("UNHANDLED PROMISE: " + event.reason);
+  console.error("UNHANDLED PROMISE: " + event.reason);
 };
 
 /**
@@ -54,6 +54,7 @@ const money = (value) => {
 };
 const uid = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const safe = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[c]);
+const safeClosest = (target, selector) => (target && typeof target.closest === "function") ? target.closest(selector) : null;
 window.safe = safe;
 
 function parseMarkdown(text) {
@@ -3151,7 +3152,7 @@ function renderPreFlightChecklist(sopId = null, existingSavedChecklist = null) {
 
   container.querySelectorAll(".preflight-checkbox").forEach((cb) => {
     cb.addEventListener("change", (e) => {
-      const label = e.target.closest(".preflight-item");
+      const label = safeClosest(e.target, ".preflight-item");
       if (label) label.classList.toggle("checked", e.target.checked);
       updatePreFlightChecklistProgress();
     });
@@ -4071,13 +4072,13 @@ document.querySelectorAll("[data-open-module]").forEach((button) => {
 
 // Robust delegation for Theme and Language toggles
 document.addEventListener("click", (e) => {
-  const themeBtn = e.target.closest("#headerThemeToggleBtn, .theme-toggle-btn, .theme-toggle");
+  const themeBtn = safeClosest(e.target, "#headerThemeToggleBtn, .theme-toggle-btn, .theme-toggle");
   if (themeBtn) {
     e.preventDefault();
     switchTheme();
     return;
   }
-  const langBtn = e.target.closest(".language-toggle, #headerLangToggleBtn");
+  const langBtn = safeClosest(e.target, ".language-toggle, #headerLangToggleBtn");
   if (langBtn) {
     e.preventDefault();
     switchLanguage();
@@ -4270,7 +4271,7 @@ document.addEventListener("keydown", (event) => {
 
 // Update internal select index on hover
 document.body.addEventListener("mouseenter", (e) => {
-  const item = e.target.closest(".workflow-tile, .quest-item, .timeline-card");
+  const item = safeClosest(e.target, ".workflow-tile, .quest-item, .timeline-card");
   if (item) {
     let selector = "";
     if (activeModule === "overview") selector = ".workflow-tile";
@@ -4305,9 +4306,9 @@ document.getElementById("nextMonthBtn")?.addEventListener("click", () => {
 
 document.body.addEventListener("click", (event) => {
   // Bubble Menu Item Handlers
-  const bubbleBtnDetail = event.target.closest("#bubbleBtnDetail");
-  const bubbleBtnEdit = event.target.closest("#bubbleBtnEdit");
-  const bubbleBtnDelete = event.target.closest("#bubbleBtnDelete");
+  const bubbleBtnDetail = safeClosest(event.target, "#bubbleBtnDetail");
+  const bubbleBtnEdit = safeClosest(event.target, "#bubbleBtnEdit");
+  const bubbleBtnDelete = safeClosest(event.target, "#bubbleBtnDelete");
   const bubbleMenu = document.getElementById("bubbleMenu");
 
   if (bubbleBtnDetail) {
@@ -4339,7 +4340,7 @@ document.body.addEventListener("click", (event) => {
   }
 
   // Dismiss bubble menu when clicking outside
-  if (bubbleMenu && !event.target.closest("#bubbleMenu") && !event.target.closest("[data-trade-actions]")) {
+  if (bubbleMenu && !safeClosest(event.target, "#bubbleMenu") && !safeClosest(event.target, "[data-trade-actions]")) {
     if (bubbleMenu.classList.contains("active")) {
       bubbleMenu.classList.remove("active");
       setTimeout(() => bubbleMenu.classList.add("hidden"), 200);
@@ -4347,7 +4348,7 @@ document.body.addEventListener("click", (event) => {
   }
 
   // Trigger three-dot bubble menu
-  const actionsTrigger = event.target.closest("[data-trade-actions]");
+  const actionsTrigger = safeClosest(event.target, "[data-trade-actions]");
   if (actionsTrigger) {
     event.stopPropagation();
     const tradeId = actionsTrigger.dataset.tradeActions;
@@ -4372,28 +4373,28 @@ document.body.addEventListener("click", (event) => {
     return;
   }
 
-  const shortcut = event.target.closest("[data-view-shortcut]")?.dataset.viewShortcut;
-  const detail = event.target.closest("[data-detail]")?.dataset.detail;
-  const edit = event.target.closest("[data-edit]")?.dataset.edit;
-  const del = event.target.closest("[data-delete]")?.dataset.delete;
-  const closeTrade = event.target.closest("[data-close-trade]")?.dataset.closeTrade;
-  const sop = event.target.closest("[data-sop]")?.dataset.sop;
-  const account = event.target.closest("[data-account]")?.dataset.account;
-  const editSop = event.target.closest("[data-edit-sop]")?.dataset.editSop;
-  const addAccount = event.target.closest("[data-add-account]")?.dataset.addAccount;
-  const editAccount = event.target.closest("[data-edit-account]")?.dataset.editAccount;
-  const editActiveAccount = event.target.closest("[data-edit-active-account]");
-  const openCapture = event.target.closest("[data-open-capture]");
-  const journalViewTarget = event.target.closest("[data-journal-view]")?.dataset.journalView;
-  const day = event.target.closest("[data-day]")?.dataset.day;
-  const imageEl = event.target.closest("[data-image]");
+  const shortcut = safeClosest(event.target, "[data-view-shortcut]")?.dataset.viewShortcut;
+  const detail = safeClosest(event.target, "[data-detail]")?.dataset.detail;
+  const edit = safeClosest(event.target, "[data-edit]")?.dataset.edit;
+  const del = safeClosest(event.target, "[data-delete]")?.dataset.delete;
+  const closeTrade = safeClosest(event.target, "[data-close-trade]")?.dataset.closeTrade;
+  const sop = safeClosest(event.target, "[data-sop]")?.dataset.sop;
+  const account = safeClosest(event.target, "[data-account]")?.dataset.account;
+  const editSop = safeClosest(event.target, "[data-edit-sop]")?.dataset.editSop;
+  const addAccount = safeClosest(event.target, "[data-add-account]")?.dataset.addAccount;
+  const editAccount = safeClosest(event.target, "[data-edit-account]")?.dataset.editAccount;
+  const editActiveAccount = safeClosest(event.target, "[data-edit-active-account]");
+  const openCapture = safeClosest(event.target, "[data-open-capture]");
+  const journalViewTarget = safeClosest(event.target, "[data-journal-view]")?.dataset.journalView;
+  const day = safeClosest(event.target, "[data-day]")?.dataset.day;
+  const imageEl = safeClosest(event.target, "[data-image]");
   const image = imageEl?.dataset.image;
   const imageIndex = imageEl?.dataset.index;
-  const tv = event.target.closest("[data-tv]")?.dataset.tv;
-  const deleteSopId = event.target.closest("[data-delete-sop]")?.dataset.deleteSop;
-  const insightKey = event.target.closest("[data-insight]")?.dataset.insight;
-  const sopExpand = event.target.closest("[data-sop-expand]");
-  if (sopExpand && !event.target.closest("button")) {
+  const tv = safeClosest(event.target, "[data-tv]")?.dataset.tv;
+  const deleteSopId = safeClosest(event.target, "[data-delete-sop]")?.dataset.deleteSop;
+  const insightKey = safeClosest(event.target, "[data-insight]")?.dataset.insight;
+  const sopExpand = safeClosest(event.target, "[data-sop-expand]");
+  if (sopExpand && !safeClosest(event.target, "button")) {
     event.stopPropagation();
     document.querySelectorAll(".sop-card").forEach((card) => {
       if (card !== sopExpand) card.classList.remove("expanded");
@@ -4443,7 +4444,7 @@ document.body.addEventListener("click", (event) => {
   if (deleteSopId) deleteSop(deleteSopId);
   if (insightKey) openInsightDetail(insightKey);
   
-  const saveReflectionBtn = event.target.closest(".save-reflection-btn");
+  const saveReflectionBtn = safeClosest(event.target, ".save-reflection-btn");
   if (saveReflectionBtn) {
     const tradeId = saveReflectionBtn.dataset.tradeId;
     const card = saveReflectionBtn.closest(".shame-trade-card");
@@ -4459,7 +4460,7 @@ document.body.addEventListener("click", (event) => {
     return;
   }
 
-  const reviewPanelBtn = event.target.closest("[data-review-panel]");
+  const reviewPanelBtn = safeClosest(event.target, "[data-review-panel]");
   if (reviewPanelBtn) {
     const panelName = reviewPanelBtn.dataset.reviewPanel;
     if (panelName) switchReviewPanel(panelName);
@@ -4779,7 +4780,7 @@ let sandboxTrades = [];
 
 function initCardSpotlightHover() {
   document.addEventListener("mousemove", (e) => {
-    const card = e.target.closest(".home-card, .play-card, .sop-card-container");
+    const card = safeClosest(e.target, ".home-card, .play-card, .sop-card-container");
     
     // Reset all other cards
     const activeCards = document.querySelectorAll(".home-card, .play-card, .sop-card-container");
@@ -4812,7 +4813,7 @@ function initCardSpotlightHover() {
   });
   
   document.addEventListener("mouseleave", (e) => {
-    const card = e.target.closest(".home-card, .play-card, .sop-card-container");
+    const card = safeClosest(e.target, ".home-card, .play-card, .sop-card-container");
     if (card) {
       card.style.transition = "transform var(--motion-base) var(--spring)";
       card.style.transform = "";
@@ -4936,7 +4937,7 @@ function initCalendarHover() {
   if (!grid) return;
   
   grid.addEventListener("mouseover", (e) => {
-    const dayBtn = e.target.closest(".calendar-day");
+    const dayBtn = safeClosest(e.target, ".calendar-day");
     if (!dayBtn || dayBtn.classList.contains("empty")) return;
     
     const day = dayBtn.dataset.day;
@@ -4996,7 +4997,7 @@ function initCalendarHover() {
   }, true);
   
   grid.addEventListener("mouseout", (e) => {
-    const dayBtn = e.target.closest(".calendar-day");
+    const dayBtn = safeClosest(e.target, ".calendar-day");
     if (!dayBtn) {
       const tooltip = document.getElementById("chartTooltip");
       if (tooltip) tooltip.classList.add("hidden");

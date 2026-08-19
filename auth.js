@@ -1,5 +1,7 @@
-// TRD Journey SaaS - Firebase Authentication, Profile & Subscription Controller
+// TRD Journey SaaS - Firebase Authentication, Profile & Stripe Subscription Controller
 (function() {
+  const STRIPE_CHECKOUT_URL = "https://buy.stripe.com/fZu14n5kJd6721W8ZFdj000";
+
   const AuthState = {
     currentUser: null,
     profile: null,
@@ -135,6 +137,10 @@
       try {
         const userDocRef = window.fbDb.collection('users').doc(user.uid);
         const docSnap = await userDocRef.get();
+
+        // Check if user returned from successful Stripe payment
+        const isPaymentSuccess = window.location.search.includes('upgrade=success') || window.location.search.includes('payment=success');
+
         if (docSnap.exists) {
           AuthState.profile = docSnap.data();
           if (AuthState.profile.subscription) {
@@ -155,6 +161,21 @@
           await userDocRef.set(initialProfile, { merge: true });
           AuthState.profile = initialProfile;
           AuthState.subscription = initialProfile.subscription;
+        }
+
+        // Activate Pro if returning from Stripe checkout
+        if (isPaymentSuccess && AuthState.subscription.plan !== 'pro') {
+          AuthState.subscription = {
+            plan: 'pro',
+            status: 'active',
+            limit: 999999,
+            subscribedAt: new Date().toISOString(),
+            provider: 'stripe'
+          };
+          await userDocRef.set({ subscription: AuthState.subscription }, { merge: true });
+          alert("🎉 Congratulations! Your TRD Journey Early Bird Pro subscription is now ACTIVE!");
+          // Clean up url parameter
+          window.history.replaceState({}, document.title, window.location.pathname);
         }
       } catch (err) {
         console.error("Failed to load user profile:", err);
@@ -212,6 +233,7 @@
         quotaBadge.className = 'quota-pill pro';
         quotaBadge.innerHTML = '⭐ Pro Active';
         quotaBadge.title = 'Unlimited Trade Logs';
+        quotaBadge.onclick = null;
       } else {
         const isNearLimit = tradeCount >= (limit - 3);
         const isMaxed = tradeCount >= limit;
@@ -268,13 +290,20 @@
         this.openModal('signup');
         return;
       }
-      // Demo / Checkout Gateway Trigger
-      const email = user.email;
-      const upgradeMsg = document.getElementById('upgradeSuccessNotice');
-      if (upgradeMsg) {
-        upgradeMsg.style.display = 'block';
-        upgradeMsg.innerHTML = `🎉 <strong>Early Bird Pass (RM 19/mo) Reserved!</strong><br><span style="font-size: 12px; color: #a1a1a6;">We have reserved an early-bird spot for <strong>${email}</strong>. Payment gateway (iPay88 / Cards) checkout will open shortly.</span>`;
+      
+      const email = encodeURIComponent(user.email || '');
+      const uid = encodeURIComponent(user.uid || '');
+      const checkoutUrl = `${STRIPE_CHECKOUT_URL}?prefilled_email=${email}&client_reference_id=${uid}`;
+
+      // Smooth feedback
+      const upgradeBtn = document.getElementById('upgradeSubmitBtn');
+      if (upgradeBtn) {
+        upgradeBtn.disabled = true;
+        upgradeBtn.textContent = "Redirecting to Secure Stripe Checkout...";
       }
+
+      // Open Stripe Checkout
+      window.location.href = checkoutUrl;
     },
 
     switchTab(tab) {
@@ -344,8 +373,8 @@
           await window.fbAuth.createUserWithEmailAndPassword(email, password);
         } else if (AuthState.currentTab === 'forgot') {
           await window.fbAuth.sendPasswordResetEmail(email);
-          this.showSuccess(`Password reset link sent to ${email}. Please check your inbox.`);
-          setTimeout(() => this.switchTab('signin'), 3000);
+          this.showSuccess(`Password reset link sent to ${email}. Please check your inbox (and Spam folder).`);
+          setTimeout(() => this.switchTab('signin'), 3500);
         }
       } catch (err) {
         let msg = err.message;

@@ -1948,10 +1948,13 @@
 
         <div id="upgradeSuccessNotice" class="auth-error-banner success" style="display: none; margin-bottom: 16px;"></div>
 
-        <button class="auth-submit-btn" type="button" style="background: linear-gradient(135deg, #ff9f0a, #ff375f); color: #fff;" onclick="window.TRDAuth.handleUpgradeClick()">
+        <button class="auth-submit-btn" id="upgradeSubmitBtn" type="button" style="background: linear-gradient(135deg, #ff9f0a, #ff375f); color: #fff;" onclick="window.TRDAuth.handleUpgradeClick()">
           Lock in Early Bird RM19/mo →
         </button>
-        <p style="text-align: center; font-size: 11px; color: #8e8e93; margin-top: 10px;">Cancel anytime. No lock-in contracts.</p>
+        <div style="margin-top: 12px; font-size: 11px; color: #8e8e93; text-align: center; line-height: 1.4;">
+          🔒 Secured by <strong>Stripe</strong> (Visa, Mastercard, Apple Pay, Debit Cards)<br>
+          <span style="color: #636366;">💡 Maybank/CIMB Debit card users: please ensure Online Purchase is enabled. Cancel anytime.</span>
+        </div>
       </div>
     </div>
 

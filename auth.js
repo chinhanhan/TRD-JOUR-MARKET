@@ -3,7 +3,7 @@
   const AuthState = {
     currentUser: null,
     profile: null,
-    subscription: { plan: 'free', status: 'active', limit: 30 },
+    subscription: { plan: 'free', status: 'active', limit: 20 },
     currentTab: 'signin',
     isInitialized: false
   };
@@ -101,7 +101,7 @@
         } else {
           console.log("🚪 [TRD Auth] User signed out.");
           AuthState.profile = null;
-          AuthState.subscription = { plan: 'free', status: 'active', limit: 30 };
+          AuthState.subscription = { plan: 'free', status: 'active', limit: 20 };
           this.clearLocalUserData();
           this.renderAnonymousUI();
         }
@@ -112,7 +112,7 @@
       // Clear in-memory trades and reset to clean state to prevent data leakage between users
       if (window.state) {
         window.state.trades = [];
-        window.state.sop = [];
+        window.state.sops = [];
         window.state.accounts = [];
         window.state.activeSopId = "";
         window.state.activeAccountId = "";
@@ -148,7 +148,7 @@
             subscription: {
               plan: 'free',
               status: 'active',
-              limit: 30,
+              limit: 20,
               subscribedAt: new Date().toISOString()
             }
           };
@@ -194,7 +194,31 @@
         userPlanBadge.textContent = isPro ? 'PRO' : 'FREE';
       }
       if (dropdownPlan) {
-        dropdownPlan.textContent = isPro ? 'Plan: Pro Member ⭐' : 'Plan: Free (30 Limit)';
+        dropdownPlan.textContent = isPro ? 'Plan: Pro Member ⭐' : 'Plan: Free (20 Limit)';
+      }
+
+      this.updateQuotaBadge();
+    },
+
+    updateQuotaBadge() {
+      const quotaBadge = document.getElementById('headerQuotaBadge');
+      if (!quotaBadge) return;
+
+      const isPro = AuthState.subscription.plan === 'pro';
+      const tradeCount = (window.state && Array.isArray(window.state.trades)) ? window.state.trades.length : 0;
+      const limit = AuthState.subscription.limit || 20;
+
+      if (isPro) {
+        quotaBadge.className = 'quota-pill pro';
+        quotaBadge.innerHTML = '⭐ Pro Active';
+        quotaBadge.title = 'Unlimited Trade Logs';
+      } else {
+        const isNearLimit = tradeCount >= (limit - 3);
+        const isMaxed = tradeCount >= limit;
+        quotaBadge.className = `quota-pill free ${isMaxed ? 'maxed' : (isNearLimit ? 'warning' : '')}`;
+        quotaBadge.innerHTML = `📊 ${tradeCount}/${limit} Trades`;
+        quotaBadge.title = `${tradeCount} of ${limit} free trades used. Click to upgrade.`;
+        quotaBadge.onclick = () => this.openUpgradeModal();
       }
     },
 
@@ -261,7 +285,7 @@
         if (tabSignIn) tabSignIn.classList.remove('active');
         if (tabSignUp) tabSignUp.classList.add('active');
         if (modalTitle) modalTitle.textContent = "Start Your Journey";
-        if (modalSubtitle) modalSubtitle.textContent = "Create your free trading performance account";
+        if (modalSubtitle) modalSubtitle.textContent = "Create your free 20-trade performance account";
         if (submitBtn) submitBtn.textContent = "Create Free Account";
         if (passGroup) passGroup.style.display = 'block';
         if (forgotPassRow) forgotPassRow.style.display = 'none';
@@ -304,8 +328,8 @@
           await window.fbAuth.createUserWithEmailAndPassword(email, password);
         } else if (AuthState.currentTab === 'forgot') {
           await window.fbAuth.sendPasswordResetEmail(email);
-          alert(`Password reset link sent to ${email}. Please check your inbox.`);
-          this.switchTab('signin');
+          this.showSuccess(`Password reset link sent to ${email}. Please check your inbox.`);
+          setTimeout(() => this.switchTab('signin'), 3000);
         }
       } catch (err) {
         let msg = err.message;
@@ -339,8 +363,8 @@
       // If Pro member, unlimited
       if (AuthState.subscription.plan === 'pro') return true;
 
-      // If Free member, limit to 30 trades
-      const limit = AuthState.subscription.limit || 30;
+      // If Free member, limit to 20 trades
+      const limit = AuthState.subscription.limit || 20;
       if (currentTradeCount >= limit) {
         this.openUpgradeModal();
         return false;
@@ -351,6 +375,16 @@
     showError(msg) {
       const banner = document.getElementById('authErrorBanner');
       if (banner) {
+        banner.className = 'auth-error-banner';
+        banner.textContent = msg;
+        banner.style.display = 'block';
+      }
+    },
+
+    showSuccess(msg) {
+      const banner = document.getElementById('authErrorBanner');
+      if (banner) {
+        banner.className = 'auth-error-banner success';
         banner.textContent = msg;
         banner.style.display = 'block';
       }

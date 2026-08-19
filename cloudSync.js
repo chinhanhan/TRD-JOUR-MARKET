@@ -29,13 +29,13 @@
           const cloudData = docSnap.data();
           if (cloudData && typeof cloudData === "object") {
             console.log("☁️ [TRD CloudSync] Pulled cloud state successfully.");
-            // Merge or replace local state if cloud data has trades or setups
+            // Merge or replace local state
             if (window.state) {
-              if (Array.isArray(cloudData.trades) && cloudData.trades.length > 0) {
+              if (Array.isArray(cloudData.trades)) {
                 window.state.trades = cloudData.trades;
               }
-              if (Array.isArray(cloudData.sop) && cloudData.sop.length > 0) {
-                window.state.sop = cloudData.sop;
+              if (Array.isArray(cloudData.sops) && cloudData.sops.length > 0) {
+                window.state.sops = cloudData.sops;
               }
               if (Array.isArray(cloudData.accounts) && cloudData.accounts.length > 0) {
                 window.state.accounts = cloudData.accounts;
@@ -43,6 +43,9 @@
               if (cloudData.settings) {
                 window.state.settings = { ...window.state.settings, ...cloudData.settings };
               }
+              if (cloudData.activeSopId) window.state.activeSopId = cloudData.activeSopId;
+              if (cloudData.activeAccountId) window.state.activeAccountId = cloudData.activeAccountId;
+
               // Save locally to IndexedDB
               if (typeof window.saveState === "function") {
                 await window.saveState();
@@ -58,6 +61,9 @@
           await this.pushToCloudImmediate();
         }
         this.updateSyncIndicator("online", "Cloud Synced ✓");
+        if (window.TRDAuth && typeof window.TRDAuth.updateQuotaBadge === "function") {
+          window.TRDAuth.updateQuotaBadge();
+        }
       } catch (err) {
         console.error("☁️ [TRD CloudSync] Pull error:", err);
         this.updateSyncIndicator("offline", "Sync error: " + err.message);
@@ -70,7 +76,7 @@
       this.updateSyncIndicator("syncing", "Saving changes to cloud...");
       syncDebounceTimer = setTimeout(() => {
         this.pushToCloudImmediate();
-      }, 1000); // 1-second debounce
+      }, 800); // 800ms debounce
     },
 
     async pushToCloudImmediate() {
@@ -93,6 +99,9 @@
         }, { merge: true });
 
         this.updateSyncIndicator("online", "Cloud Synced ✓");
+        if (window.TRDAuth && typeof window.TRDAuth.updateQuotaBadge === "function") {
+          window.TRDAuth.updateQuotaBadge();
+        }
       } catch (err) {
         console.error("☁️ [TRD CloudSync] Push error:", err);
         this.updateSyncIndicator("offline", "Cloud save failed");

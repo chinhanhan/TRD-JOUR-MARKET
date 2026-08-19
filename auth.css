@@ -703,3 +703,48 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* --- 5. Quota Badge & Success Banners --- */
+.quota-pill {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 980px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s ease;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ink, #ffffff);
+}
+
+.quota-pill.pro {
+  background: rgba(255, 159, 10, 0.15);
+  border-color: rgba(255, 159, 10, 0.35);
+  color: #ff9f0a;
+}
+
+.quota-pill.free.warning {
+  background: rgba(255, 159, 10, 0.18);
+  border-color: rgba(255, 159, 10, 0.4);
+  color: #ff9f0a;
+}
+
+.quota-pill.free.maxed {
+  background: rgba(255, 69, 58, 0.2);
+  border-color: rgba(255, 69, 58, 0.45);
+  color: #ff453a;
+}
+
+.quota-pill:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.auth-error-banner.success {
+  background: rgba(48, 209, 88, 0.15);
+  border-color: rgba(48, 209, 88, 0.35);
+  color: #30d158;
+}

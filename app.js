@@ -34,7 +34,7 @@
 const STORAGE_KEY = "trd-journey-os-v1";
 const LEGACY_KEY = "trd-journey-v1";
 const LANGUAGE_KEY = "trd-journey-language";
-const IMAGE_LIMIT = 850 * 1024;
+const IMAGE_LIMIT = 120 * 1024;
 
 const localISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const todayISO = () => localISO(new Date());
@@ -2853,7 +2853,7 @@ async function compressImage(dataUrl) {
     image.onload = resolve;
     image.onerror = () => reject(new Error("Image could not be loaded."));
   });
-  const maxSide = 1400;
+  const maxSide = 1080;
   const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(image.width * scale));
@@ -2861,7 +2861,7 @@ async function compressImage(dataUrl) {
   const context = canvas.getContext("2d");
   context.drawImage(image, 0, 0, canvas.width, canvas.height);
   
-  let quality = 0.82;
+  let quality = 0.75;
   let type = "image/webp";
   let output = canvas.toDataURL(type, quality);
   
@@ -2871,7 +2871,7 @@ async function compressImage(dataUrl) {
     output = canvas.toDataURL(type, quality);
   }
 
-  while (output.length > IMAGE_LIMIT && quality > 0.42) {
+  while (output.length > IMAGE_LIMIT && quality > 0.35) {
     quality -= 0.1;
     output = canvas.toDataURL(type, quality);
   }
@@ -3186,7 +3186,7 @@ async function saveTradeFromForm(event) {
       text: cb.dataset.ruleText || "",
       checked: Boolean(cb.checked)
     }));
-    const preflightPassed = preflightItems.length > 0 && preflightItems.every((i) => i.checked);
+    const preflightPassed = preflightItems.length === 0 || preflightItems.every((i) => i.checked);
 
     const activeSopObj = state.sops.find((s) => s.id === form.sopId.value) || activeSop();
     const trade = normalizeTrade({

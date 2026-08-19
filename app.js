@@ -3879,13 +3879,16 @@ function renderActivityRings() {
   setText("legendRulesVal", `${rulePercent}%`);
 }
 
+let _currentSheetZIndex = 9000;
 function openSheet(id) {
+  _currentSheetZIndex++;
   const sheet = document.getElementById(id);
   if (!sheet) return;
   playSound("switch");
   sheet.classList.remove("hidden");
   // Force reflow
   sheet.offsetWidth;
+  sheet.style.zIndex = _currentSheetZIndex;
   sheet.classList.add("active");
   document.body.style.overflow = "hidden";
   document.body.classList.add("sheet-open");

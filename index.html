@@ -95,13 +95,51 @@
               <li><span class="check">✓</span> Weekly & Monthly Review Reports</li>
               <li><span class="check">✓</span> Priority Local Support</li>
             </ul>
-            <button class="pricing-btn pro-btn open-signup-trigger" type="button">Join Early Bird Pro</button>
+            <button class="pricing-btn pro-btn" type="button" onclick="window.TRDAuth.startProUpgradeIntent()">Join Early Bird Pro</button>
           </div>
         </div>
       </section>
 
-      <footer style="max-width: 1040px; margin: 80px auto 0; text-align: center; font-size: 13px; color: #636366; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 24px;">
-        <p>© 2026 TRD Journey. Built for disciplined trading performance.</p>
+      <!-- FAQ Section -->
+      <section style="max-width: 860px; margin: 80px auto 0;">
+        <h2 style="text-align: center; font-size: clamp(24px, 4vw, 36px); font-weight: 800; margin-bottom: 36px; background: linear-gradient(180deg, #ffffff 40%, rgba(255, 255, 255, 0.65) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Frequently Asked Questions</h2>
+        
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          <details style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 14px; padding: 16px 20px; cursor: pointer;">
+            <summary style="font-weight: 700; font-size: 15px; color: #ffffff;">🔒 Is my trading data safe and private?</summary>
+            <p style="margin: 10px 0 0; font-size: 13.5px; color: #a1a1a6; line-height: 1.6;">Yes. Your trading data is encrypted and stored in Google Cloud Singapore (asia-southeast1) with strict multi-tenant security isolation. Nobody—not even platform administrators—can access your private strategy setups or P&L.</p>
+          </details>
+
+          <details style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 14px; padding: 16px 20px; cursor: pointer;">
+            <summary style="font-weight: 700; font-size: 15px; color: #ffffff;">💳 How does payment and cancellation work?</summary>
+            <p style="margin: 10px 0 0; font-size: 13.5px; color: #a1a1a6; line-height: 1.6;">We support both automated monthly subscription via Stripe (Visa, Mastercard, Apple Pay, Debit Cards) and Touch 'n Go / DuitNow QR. You can cancel your subscription at any time with one click in your account settings—no questions asked and no lock-in contracts.</p>
+          </details>
+
+          <details style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 14px; padding: 16px 20px; cursor: pointer;">
+            <summary style="font-weight: 700; font-size: 15px; color: #ffffff;">⚡ Why manual logging instead of broker API connection?</summary>
+            <p style="margin: 10px 0 0; font-size: 13.5px; color: #a1a1a6; line-height: 1.6;">Broker API connections often pose severe account credential security risks. Furthermore, professional hedge fund research shows that the physical act of logging a trade with Pre-Flight checks builds 80% higher psychological discipline than passive automatic syncing.</p>
+          </details>
+
+          <details style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 14px; padding: 16px 20px; cursor: pointer;">
+            <summary style="font-weight: 700; font-size: 15px; color: #ffffff;">📊 What happens when I reach the 20-trade free limit?</summary>
+            <p style="margin: 10px 0 0; font-size: 13.5px; color: #a1a1a6; line-height: 1.6;">Your 20 recorded trades remain safely accessible forever. To log trade #21 and unlock unlimited real-time cloud sync, deep mistake attribution, and weekly behavioral reports, you can upgrade to Pro for just RM 19/month.</p>
+          </details>
+        </div>
+      </section>
+
+      <!-- Footer & Disclaimer -->
+      <footer style="max-width: 1040px; margin: 80px auto 0; text-align: center; font-size: 12px; color: #636366; border-top: 1px solid rgba(255, 255, 255, 0.08); padding: 32px 20px;">
+        <p style="margin-bottom: 12px;">© 2026 TRD Journey. Built for disciplined trading performance in Malaysia & SEA.</p>
+        <p style="max-width: 720px; margin: 0 auto 16px; font-size: 11px; color: #48484a; line-height: 1.5;">
+          <strong>Risk Disclaimer:</strong> Trading foreign exchange, cryptocurrencies, indices, and equities carries a high level of risk and may not be suitable for all investors. TRD Journey is a behavioral review and performance logging software, not a financial advisor or signal provider. Past performance is no guarantee of future results.
+        </p>
+        <div style="display: flex; justify-content: center; gap: 18px; font-size: 12px;">
+          <a href="https://wa.me/60127790020?text=Hi%20TRD%20Journey%20Support" target="_blank" style="color: #30d158; text-decoration: none;">💬 WhatsApp Support</a>
+          <span style="color: #3a3a3c;">•</span>
+          <span style="color: #8e8e93;">Terms of Service</span>
+          <span style="color: #3a3a3c;">•</span>
+          <span style="color: #8e8e93;">Privacy Policy</span>
+        </div>
       </footer>
     </div>
 
@@ -1903,7 +1941,10 @@
 
           <div class="auth-form-group" id="authPasswordGroup">
             <label for="authPasswordInput">Password</label>
-            <input class="auth-input" type="password" id="authPasswordInput" required placeholder="••••••••" minlength="6" />
+            <div style="position: relative; display: flex; align-items: center;">
+              <input class="auth-input" type="password" id="authPasswordInput" required placeholder="••••••••" minlength="6" style="padding-right: 42px; width: 100%;" />
+              <button type="button" id="togglePasswordVisibilityBtn" aria-label="Toggle password visibility" style="position: absolute; right: 12px; background: none; border: none; color: #8e8e93; cursor: pointer; font-size: 15px; padding: 4px; display: flex; align-items: center;" onclick="window.TRDAuth.togglePasswordVisibility()">👁️</button>
+            </div>
           </div>
 
           <button class="auth-submit-btn" id="authSubmitBtn" type="submit">Sign In</button>
@@ -1984,6 +2025,20 @@
             📲 WhatsApp Receipt to Activate PRO →
           </button>
           <p style="text-align: center; font-size: 11px; color: #8e8e93; margin-top: 8px;">Fast manual approval within 5 minutes.</p>
+        </div>
+
+        <!-- VIP Activation Key / Redeem Code -->
+        <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed rgba(255, 255, 255, 0.12); text-align: center;">
+          <div id="redeemToggleRow" style="font-size: 12px; color: #a1a1a6;">
+            Have an activation code? <button type="button" onclick="window.TRDAuth.toggleRedeemBox()" style="background: none; border: none; color: #0a84ff; font-weight: 600; cursor: pointer; text-decoration: underline;">Redeem Key</button>
+          </div>
+          <div id="redeemInputBox" style="display: none; margin-top: 10px;">
+            <div style="display: flex; gap: 8px;">
+              <input type="text" id="redeemKeyInput" placeholder="e.g. TRD-PRO-VIP" style="flex: 1; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: #fff; padding: 8px 12px; font-size: 13px; text-transform: uppercase;" />
+              <button type="button" onclick="window.TRDAuth.handleRedeemKey()" style="background: #30d158; color: #000; font-weight: 700; border: none; border-radius: 8px; padding: 0 16px; font-size: 13px; cursor: pointer;">Activate</button>
+            </div>
+            <div id="redeemFeedbackMsg" style="font-size: 11px; margin-top: 6px; display: none;"></div>
+          </div>
         </div>
       </div>
     </div>

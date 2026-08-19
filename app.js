@@ -1124,6 +1124,11 @@ function renderAll() {
   evaluateBadges();
   renderBadgeShowcase();
 
+  // SaaS Quota Badge real-time refresh
+  if (window.TRDAuth && typeof window.TRDAuth.updateQuotaBadge === "function") {
+    window.TRDAuth.updateQuotaBadge();
+  }
+
   // Initialize AnimatedList gradients and Intersection Observer
   setTimeout(() => {
     if (window.observeAnimatedItems) window.observeAnimatedItems();
@@ -3970,10 +3975,25 @@ function updateInternalSelection(items) {
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     const backdrop = document.getElementById("modalBackdrop");
+    const authBackdrop = document.getElementById("authModalBackdrop");
+    const upgradeBackdrop = document.getElementById("upgradeModalBackdrop");
+
+    if (authBackdrop && authBackdrop.classList.contains("active")) {
+      authBackdrop.classList.remove("active");
+      return;
+    }
+    if (upgradeBackdrop && upgradeBackdrop.classList.contains("active")) {
+      upgradeBackdrop.classList.remove("active");
+      return;
+    }
     if (backdrop && !backdrop.classList.contains("hidden")) {
       closeModal();
-    } else if (activeModule) {
-      closeModule();
+      return;
+    }
+    const activeSheet = document.querySelector(".sheet-backdrop.active");
+    if (activeSheet && typeof closeSheet === "function") {
+      closeSheet(activeSheet.id);
+      return;
     }
     return;
   }

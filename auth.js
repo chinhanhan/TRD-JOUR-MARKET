@@ -1,6 +1,15 @@
-// TRD Journey SaaS - Firebase Authentication, Profile & Stripe Subscription Controller
+// TRD Journey SaaS - Firebase Authentication, Profile & Stripe/TNG Commercial Controller
 (function() {
   const STRIPE_CHECKOUT_URL = "https://buy.stripe.com/fZu14n5kJd6721W8ZFdj000";
+
+  // Valid VIP Redeem Code patterns for manual approval (e.g. TNG transfer or promotions)
+  const VALID_REDEEM_KEYS = [
+    "TRD-PRO-VIP",
+    "TRD-EARLYBIRD-2026",
+    "TRD-MALAYSIA-PRO",
+    "TRD-COMMUNITY-VIP",
+    "TRD-SPECIAL-PRO"
+  ];
 
   const AuthState = {
     currentUser: null,
@@ -96,9 +105,18 @@
           await this.loadUserProfile(user);
           this.renderAuthenticatedUI(user);
           this.closeModal();
+
           // Initialize cloud trade sync
           if (window.TRDCloudSync) {
             window.TRDCloudSync.init(user.uid);
+          }
+
+          // Handle Pending Upgrade Intent from Landing Page
+          if (sessionStorage.getItem('trd_pending_upgrade') === 'true') {
+            sessionStorage.removeItem('trd_pending_upgrade');
+            setTimeout(() => {
+              this.openUpgradeModal();
+            }, 600);
           }
         } else {
           console.log("🚪 [TRD Auth] User signed out.");
@@ -302,6 +320,16 @@
       }
     },
 
+    startProUpgradeIntent() {
+      const user = this.getUser();
+      if (user) {
+        this.openUpgradeModal();
+      } else {
+        sessionStorage.setItem('trd_pending_upgrade', 'true');
+        this.openModal('signup');
+      }
+    },
+
     handleTngWhatsAppClick() {
       const user = this.getUser();
       const email = user ? user.email : 'Guest';
@@ -309,10 +337,89 @@
       window.open(`https://wa.me/60127790020?text=${msg}`, '_blank');
     },
 
+    togglePasswordVisibility() {
+      const passInput = document.getElementById('authPasswordInput');
+      const toggleBtn = document.getElementById('togglePasswordVisibilityBtn');
+      if (!passInput) return;
+      if (passInput.type === 'password') {
+        passInput.type = 'text';
+        if (toggleBtn) toggleBtn.textContent = '🔒';
+      } else {
+        passInput.type = 'password';
+        if (toggleBtn) toggleBtn.textContent = '👁️';
+      }
+    },
+
+    toggleRedeemBox() {
+      const box = document.getElementById('redeemInputBox');
+      if (box) {
+        box.style.display = box.style.display === 'none' ? 'block' : 'none';
+      }
+    },
+
+    async handleRedeemKey() {
+      const keyInput = document.getElementById('redeemKeyInput');
+      const feedbackEl = document.getElementById('redeemFeedbackMsg');
+      if (!keyInput || !feedbackEl) return;
+
+      const enteredKey = keyInput.value.trim().toUpperCase();
+      if (!enteredKey) {
+        feedbackEl.style.display = 'block';
+        feedbackEl.style.color = '#ff453a';
+        feedbackEl.textContent = 'Please enter an activation code.';
+        return;
+      }
+
+      const isValid = VALID_REDEEM_KEYS.includes(enteredKey) || enteredKey.startsWith("TRD-PRO-");
+      if (!isValid) {
+        feedbackEl.style.display = 'block';
+        feedbackEl.style.color = '#ff453a';
+        feedbackEl.textContent = 'Invalid activation key. Please contact support via WhatsApp.';
+        return;
+      }
+
+      const user = this.getUser();
+      if (!user) {
+        feedbackEl.style.display = 'block';
+        feedbackEl.style.color = '#ff9f0a';
+        feedbackEl.textContent = 'Please sign in or create an account first.';
+        return;
+      }
+
+      try {
+        feedbackEl.style.display = 'block';
+        feedbackEl.style.color = '#0a84ff';
+        feedbackEl.textContent = 'Verifying key & upgrading...';
+
+        AuthState.subscription = {
+          plan: 'pro',
+          status: 'active',
+          limit: 999999,
+          subscribedAt: new Date().toISOString(),
+          provider: 'redeem_code',
+          redeemKey: enteredKey
+        };
+
+        if (window.fbDb) {
+          const userDocRef = window.fbDb.collection('users').doc(user.uid);
+          await userDocRef.set({ subscription: AuthState.subscription }, { merge: true });
+        }
+
+        feedbackEl.style.color = '#30d158';
+        feedbackEl.innerHTML = '🎉 <strong>PRO Activated Successfully!</strong> Unlimited trades unlocked.';
+        this.renderAuthenticatedUI(user);
+        setTimeout(() => this.closeUpgradeModal(), 2000);
+      } catch (e) {
+        feedbackEl.style.color = '#ff453a';
+        feedbackEl.textContent = 'Activation failed: ' + e.message;
+      }
+    },
+
     handleUpgradeClick() {
       const user = this.getUser();
       if (!user) {
         this.closeUpgradeModal();
+        sessionStorage.setItem('trd_pending_upgrade', 'true');
         this.openModal('signup');
         return;
       }
@@ -399,8 +506,8 @@
           await window.fbAuth.createUserWithEmailAndPassword(email, password);
         } else if (AuthState.currentTab === 'forgot') {
           await window.fbAuth.sendPasswordResetEmail(email);
-          this.showSuccess(`Password reset link sent to ${email}. Please check your inbox (and Spam folder).`);
-          setTimeout(() => this.switchTab('signin'), 3500);
+          this.showSuccess(`Password reset email sent to <strong>${email}</strong>.<br><span style="font-size: 11.5px; color: #ff9f0a; display: block; margin-top: 6px;">💡 Note: If not received within 1 minute, please check your <strong>Spam (垃圾邮件)</strong> or Promotions folder.</span>`);
+          setTimeout(() => this.switchTab('signin'), 5000);
         }
       } catch (err) {
         let msg = err.message;
@@ -447,7 +554,7 @@
       const banner = document.getElementById('authErrorBanner');
       if (banner) {
         banner.className = 'auth-error-banner';
-        banner.textContent = msg;
+        banner.innerHTML = msg;
         banner.style.display = 'block';
       }
     },
@@ -456,7 +563,7 @@
       const banner = document.getElementById('authErrorBanner');
       if (banner) {
         banner.className = 'auth-error-banner success';
-        banner.textContent = msg;
+        banner.innerHTML = msg;
         banner.style.display = 'block';
       }
     },

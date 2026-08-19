@@ -242,12 +242,97 @@ function t(key) {
   return dictionary[language]?.[key] || dictionary.en[key] || key;
 }
 
+function getDemoTrades() {
+  const today = new Date().toISOString().split("T")[0];
+  const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+  const twoDaysAgo = new Date(Date.now() - 172800000).toISOString().split("T")[0];
+
+  return [
+    {
+      id: "demo-trade-1",
+      isDemo: true,
+      date: twoDaysAgo,
+      openTime: `${twoDaysAgo}T14:30`,
+      closeTime: `${twoDaysAgo}T16:45`,
+      symbol: "EURUSD",
+      direction: "Long",
+      setup: "Liquidity Sweep & Retest",
+      risk: 100,
+      pnl: 300,
+      pnlR: 3.0,
+      rMultiple: 3.0,
+      status: "closed",
+      grade: "A",
+      maeR: -0.2,
+      mfeR: 3.2,
+      preFlightChecklist: { passed: true, items: [{ text: "Higher timeframe trend aligns", checked: true }, { text: "No high-impact red news nearby", checked: true }] },
+      mistakes: [],
+      notes: "Standard H4 Liquidity Sweep. Clean execution, followed Pre-Flight SOP perfectly.",
+      sopId: "sop-default",
+      accountId: "acc-default"
+    },
+    {
+      id: "demo-trade-2",
+      isDemo: true,
+      date: yesterday,
+      openTime: `${yesterday}T19:15`,
+      closeTime: `${yesterday}T20:00`,
+      symbol: "BTCUSD",
+      direction: "Short",
+      setup: "Breakout",
+      risk: 100,
+      pnl: -100,
+      pnlR: -1.0,
+      rMultiple: -1.0,
+      status: "closed",
+      grade: "C",
+      maeR: -1.0,
+      mfeR: 0.3,
+      preFlightChecklist: { passed: false, items: [{ text: "Wait for 15M candle close confirmation", checked: false }] },
+      mistakes: ["FOMO 追高 / 情绪化提前进场"],
+      notes: "Felt impatient and entered early without 15M confirmation. Lesson: Never rush before candle close.",
+      sopId: "sop-default",
+      accountId: "acc-default"
+    },
+    {
+      id: "demo-trade-3",
+      isDemo: true,
+      date: today,
+      openTime: `${today}T10:00`,
+      closeTime: "",
+      symbol: "XAUUSD",
+      direction: "Long",
+      setup: "Opening Drive",
+      risk: 100,
+      pnl: 0,
+      pnlR: 0,
+      rMultiple: 0,
+      status: "open",
+      grade: "A",
+      preFlightChecklist: { passed: true, items: [{ text: "London session opening liquidity", checked: true }] },
+      mistakes: [],
+      notes: "Live open position. Riding London session momentum.",
+      sopId: "sop-default",
+      accountId: "acc-default"
+    }
+  ];
+}
+
+window.clearDemoTrades = function() {
+  state.trades = (state.trades || []).filter(t => !t.isDemo);
+  localStorage.setItem("trd_demo_cleared", "true");
+  saveState();
+  renderAll();
+  if (window.toast) window.toast("✨ Demo data cleared. Ready for live journaling!", "success");
+};
+
 function defaultState() {
+  const shouldLoadDemo = !localStorage.getItem("trd_demo_cleared");
   const base = {
     version: 1,
     schemaVersion: 110,
     preferences: structuredClone(defaultPreferences),
-    trades: [],
+    trades: shouldLoadDemo ? getDemoTrades() : [],
     dailyPlans: {
       [todayISO()]: { bias: "Wait for confirmation near key levels.", levels: "Previous high / low, session open", allowedSetups: "Opening Drive, Liquidity Sweep", maxLossR: -2, maxTrades: 3 }
     },
@@ -1711,14 +1796,25 @@ function renderSopTimeline() {
   const zeroState = document.getElementById("timelineZeroState");
   const groups = timelineGroups(visibleTrades());
   const days = Object.keys(groups);
-  
+  const hasDemo = (state.trades || []).some(t => t.isDemo);
+
   if (!days.length) {
     target.style.display = "none";
     if (zeroState) zeroState.style.display = "flex";
   } else {
     target.style.display = "grid";
     if (zeroState) zeroState.style.display = "none";
-    target.innerHTML = days.map((day) => `
+
+    const demoBannerHtml = hasDemo ? `
+      <div style="grid-column: 1 / -1; background: linear-gradient(135deg, rgba(10, 132, 255, 0.12), rgba(94, 92, 230, 0.12)); border: 1px solid rgba(10, 132, 255, 0.3); border-radius: 12px; padding: 12px 16px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+        <span style="font-size: 13px; color: #d1d1d6; display: flex; align-items: center; gap: 6px;">
+          💡 <strong>Interactive Demo Sandbox:</strong> 3 sample trades preloaded to showcase equity curves, analytics & matrix.
+        </span>
+        <button type="button" class="ghost-button compact" onclick="window.clearDemoTrades()" style="font-size: 11px; padding: 3px 12px; border-radius: 9999px; color: #ff9f0a; border-color: rgba(255, 159, 10, 0.4); font-weight: 600;">Clear Demo Data</button>
+      </div>
+    ` : "";
+
+    target.innerHTML = demoBannerHtml + days.map((day) => `
       <section class="timeline-day">
         <div class="timeline-date"><strong>${safe(new Date(`${day}T00:00:00`).toLocaleDateString("en", { month: "short", day: "numeric" }))}</strong><span>${groups[day].length} records</span></div>
         <div class="timeline-records">${groups[day].map(timelineCard).join("")}</div>

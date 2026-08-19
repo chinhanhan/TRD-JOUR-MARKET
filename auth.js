@@ -294,6 +294,27 @@
     openUpgradeModal() {
       const modal = document.getElementById('upgradeModalBackdrop');
       if (modal) modal.classList.add('active');
+
+      // Dynamically populate value review report card
+      const trades = (window.state && Array.isArray(window.state.trades)) ? window.state.trades : [];
+      const limit = AuthState.subscription.limit || 20;
+      const countEl = document.getElementById('reportTradeCount');
+      const sopEl = document.getElementById('reportSopRate');
+      const mistakeEl = document.getElementById('reportMistakes');
+
+      if (countEl) countEl.textContent = `${trades.length}/${limit}`;
+
+      if (trades.length > 0) {
+        const passedCount = trades.filter(t => t.preFlightChecklist?.passed !== false).length;
+        const sopPercent = Math.round((passedCount / trades.length) * 100);
+        if (sopEl) sopEl.textContent = `${sopPercent}%`;
+
+        const mistakeCount = trades.filter(t => t.mistakes && t.mistakes.length > 0).length;
+        if (mistakeEl) mistakeEl.textContent = `${mistakeCount} Audited`;
+      } else {
+        if (sopEl) sopEl.textContent = '100%';
+        if (mistakeEl) mistakeEl.textContent = '0 Audited';
+      }
     },
 
     closeUpgradeModal() {

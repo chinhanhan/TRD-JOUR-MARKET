@@ -1,3 +1,11 @@
+window.onerror = function(msg, url, lineNo, columnNo, error) {
+  alert("GLOBAL ERROR: " + msg + "\nLine: " + lineNo);
+  return false;
+};
+window.onunhandledrejection = function(event) {
+  alert("UNHANDLED PROMISE: " + event.reason);
+};
+
 /**
  * @typedef {Object} SopSnapshot
  * @property {number} version

@@ -82,94 +82,12 @@ class TRDDataEngine {
   async importJSON(fileInput) {
     if (!fileInput || !fileInput.files || !fileInput.files[0]) return;
     const file = fileInput.files[0];
-    fileInput.value = ""; // Reset value so change event triggers on re-select
-    const reader = new FileReader();
-
-    reader.onload = async (e) => {
-      try {
-        const data = JSON.parse(e.target.result);
-        const STORAGE_KEY = "trd-journey-os-v1";
-
-        // --- Support both new v2.0 format (data.state) and legacy format ---
-        let stateToRestore = null;
-
-        if (data.state && typeof data.state === "object") {
-          // New v2.0 backup format: { app, backupVersion, exportedAt, state: {...} }
-          stateToRestore = data.state;
-          stateToRestore.schemaVersion = data.schemaVersion || stateToRestore.schemaVersion || 110;
-        } else if (data.trades && Array.isArray(data.trades)) {
-          // Legacy v1.x backup format: { trades: [], sop: "...", accounts: "...", ... }
-          // Reconstruct a minimal state object from the old fragmented format
-          let sops = [];
-          let accounts = [];
-          let preferences = {};
-          let dailyPlans = {};
-          let dailyReviews = {};
-          let reflections = {};
-          let playbook = {};
-
-          try { sops = data.sop ? (typeof data.sop === "string" ? JSON.parse(data.sop) : data.sop) : []; } catch (e) {}
-          try { accounts = data.accounts ? (typeof data.accounts === "string" ? JSON.parse(data.accounts) : data.accounts) : []; } catch (e) {}
-          try { preferences = data.settings ? (typeof data.settings === "string" ? JSON.parse(data.settings) : data.settings) : {}; } catch (e) {}
-          try { dailyPlans = data.plans ? (typeof data.plans === "string" ? JSON.parse(data.plans) : data.plans) : {}; } catch (e) {}
-          try { dailyReviews = data.reviews ? (typeof data.reviews === "string" ? JSON.parse(data.reviews) : data.reviews) : {}; } catch (e) {}
-          try { reflections = data.reflections ? (typeof data.reflections === "string" ? JSON.parse(data.reflections) : data.reflections) : {}; } catch (e) {}
-          try { playbook = data.playbook ? (typeof data.playbook === "string" ? JSON.parse(data.playbook) : data.playbook) : {}; } catch (e) {}
-
-          stateToRestore = {
-            version: 1,
-            schemaVersion: 110,
-            trades: data.trades,
-            sops: Array.isArray(sops) ? sops : [],
-            accounts: Array.isArray(accounts) ? accounts : [],
-            preferences,
-            dailyPlans,
-            dailyReviews,
-            reflections,
-            playbook,
-            activeSopId: sops[0]?.id || "",
-            activeAccountId: accounts[0]?.id || ""
-          };
-        } else {
-          alert("Invalid backup file: not a recognized TRD Journey backup format.");
-          return;
-        }
-
-        const tradeCount = (stateToRestore.trades || []).length;
-        const backupDate = data.exportedAt || data.exportDate || "Unknown";
-        
-        const action = confirm(
-          `Backup detected\n\nTrades: ${tradeCount}\nSOP Versions: ${(stateToRestore.sops || []).length}\nBackup Date: ${backupDate}\n\nClick [OK] to REPLACE your existing data with this backup.\nClick [Cancel] to ABORT.`
-        );
-        
-        if (!action) {
-          console.log("Import cancelled by user");
-          return;
-        }
-
-        // Write to IndexedDB (primary store)
-        if (window.idbSet) {
-          await window.idbSet(STORAGE_KEY, stateToRestore);
-        } else {
-          // Fallback: write to localStorage
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToRestore));
-        }
-
-        // Issue Fix #2: Instantly update in-memory state and disable auto-save before reload
-        if (window.state) {
-          Object.keys(window.state).forEach(k => delete window.state[k]);
-          Object.assign(window.state, stateToRestore);
-        }
-        window.saveState = async () => {}; // Block any async auto-save race condition during reload
-
-        alert(`✅ Successfully restored ${tradeCount} trade record(s)!\nPage will reload now.`);
-        window.location.reload();
-      } catch (err) {
-        alert("Error restoring backup: " + err.message);
-      }
-    };
-
-    reader.readAsText(file);
+    if (window.importJson) {
+      window.importJson(file);
+    } else {
+      alert("System not fully initialized yet.");
+    }
+    fileInput.value = "";
   }
 
   exportCSV() {

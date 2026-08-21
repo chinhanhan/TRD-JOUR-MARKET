@@ -42,6 +42,7 @@
       try {
         const stateDocRef = window.fbDb.collection("users").doc(activeUid).collection("data").doc("state");
         unsubscribeSnapshot = stateDocRef.onSnapshot(async (docSnap) => {
+          if (window.isImporting) { console.log("⏸️ [CloudSync] Paused during import"); return; }
           if (!docSnap.exists) return;
           const cloudData = docSnap.data();
           if (!cloudData || typeof cloudData !== "object") return;
@@ -167,15 +168,22 @@
       console.warn(`⚠️ [TRD CloudSync] Payload size (${Math.round(byteSize / 1024)}KB) exceeds safe threshold. Optimizing old image thumbnails for cloud...`);
 
       if (Array.isArray(cleanState.trades)) {
-        cleanState.trades.forEach((trade, index) => {
-          if (index < cleanState.trades.length - 10) {
-            if (trade.images && trade.images.length > 0) {
-              trade.imagesCloudStripped = true;
-              delete trade.images;
-              delete trade.imageData;
+        // Strip images starting from the oldest trades until size is safe
+        for (let i = 0; i < cleanState.trades.length; i++) {
+          const trade = cleanState.trades[i];
+          if (trade.images && trade.images.length > 0) {
+            trade.imagesCloudStripped = true;
+            delete trade.images;
+            delete trade.imageData;
+            
+            // Recalculate size
+            jsonString = JSON.stringify(cleanState);
+            byteSize = new Blob([jsonString]).size;
+            if (byteSize <= MAX_SAFE_DOC_BYTES) {
+              break;
             }
           }
-        });
+        }
       }
 
       return cleanState;
@@ -294,7 +302,7 @@
           window.TRDAuth.updateQuotaBadge();
         }
       } catch (err) {
-        console.error("☁️ [TRD CloudSync] Push error:", err);
+        console.error("☁️ [TRD CloudSync] Push error:", err); alert("Cloud Save Failed: " + err.message);
         this.updateSyncIndicator("offline", "Cloud save failed");
       } finally {
         isSyncing = false;

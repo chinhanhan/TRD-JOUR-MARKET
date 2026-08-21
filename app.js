@@ -472,6 +472,41 @@ function normalizeState(raw) {
   if (raw.state && typeof raw.state === "object") {
     raw = raw.state;
   }
+  
+  let sops = raw.sops;
+  if (!sops && raw.sop) {
+    try { sops = typeof raw.sop === "string" ? JSON.parse(raw.sop) : raw.sop; } catch (e) {}
+  }
+  if (Array.isArray(sops)) {
+    sops = sops.map(sop => typeof sop === "string" ? { name: sop } : sop);
+    if (!raw.preferences) raw.preferences = {};
+    if (!raw.preferences.setups) raw.preferences.setups = [];
+    sops.forEach(sop => {
+      if (sop?.name && !raw.preferences.setups.includes(sop.name)) {
+        raw.preferences.setups.push(sop.name);
+      }
+    });
+    raw.sops = sops;
+  }
+  
+
+  // MIGRATE LEGACY TRADES: Assign sopId based on setup if missing
+  if (Array.isArray(raw.trades)) {
+    raw.trades = raw.trades.map(trade => {
+      const t = normalizeTrade(trade);
+      if (!t.sopId && t.setup) {
+        t.sopId = makeSopId(t.setup);
+      }
+      if (!t.accountId && t.sopId) {
+        t.accountId = makeAccountId(t.sopId, "Main Account");
+      }
+      // Re-attach images if they were stripped in cloud sync (just keeping properties)
+      if (trade.images) t.images = trade.images;
+      if (trade.imagesCloudStripped) t.imagesCloudStripped = trade.imagesCloudStripped;
+      return t;
+    });
+  }
+
   return ensureSopState({
     version: 1,
     schemaVersion: raw.schemaVersion || 110,
@@ -573,6 +608,8 @@ function normalizeTrade(trade) {
     setup: trade.setup || defaultPreferences.setups[0],
     direction: trade.direction || "Long",
     grade: trade.grade || "B",
+    sopId: trade.sopId,
+    accountId: trade.accountId,
     risk: (() => { const n = Number(trade.risk); return (!isNaN(n) && isFinite(n)) ? n : 0; })(),
     rMultiple: (() => { if (trade.rMultiple === undefined || trade.rMultiple === "") return ""; const n = Number(trade.rMultiple); return (!isNaN(n) && isFinite(n)) ? n : ""; })(),
     pnl: (() => { if (trade.pnl === "" || trade.pnl == null) return 0; const n = Number(trade.pnl); return (!isNaN(n) && isFinite(n)) ? n : 0; })(),
@@ -663,6 +700,13 @@ function ensureSopState(rawState) {
     const account = existingAccounts.find((item) => item.id === trade.accountId && item.sopId === sop?.id) || existingAccounts.find((item) => item.sopId === sop?.id);
     return { ...trade, sopId: sop?.id || "", accountId: account?.id || "" };
   });
+  // Sync back: Ensure all active SOP names exist in preferences.setups
+  existingSops.forEach(sop => {
+    if (sop.name && !sop.archivedAt && !rawState.preferences.setups.includes(sop.name)) {
+      rawState.preferences.setups.push(sop.name);
+    }
+  });
+
   const activeSopId = existingSops.some((sop) => sop.id === rawState.activeSopId) ? rawState.activeSopId : firstSop?.id || "";
   const activeAccount = existingAccounts.find((account) => account.id === rawState.activeAccountId && account.sopId === activeSopId) || existingAccounts.find((account) => account.sopId === activeSopId);
   return {
@@ -2675,6 +2719,8 @@ function saveSopFromModal(event) {
     
     state.activeSopId = id;
     state.activeAccountId = accountsForSop(id)[0]?.id || state.activeAccountId;
+    state = ensureSopState(state);
+    window.state = state;
     saveState();
     closeModal();
     renderAll();
@@ -3806,6 +3852,7 @@ function download(filename, content, type) {
   URL.revokeObjectURL(url);
 }
 
+window.importJson = importJson;
 async function importJson(file) {
   if (!file) return;
   try {
@@ -3817,6 +3864,55 @@ async function importJson(file) {
   } catch (error) {
     toast("Invalid JSON backup. Current data was not changed.", "error");
   }
+}
+
+
+function clearAllData() {
+  if (!confirm("Are you sure you want to WIPE ALL DATA? This will delete all trades, SOPs, and accounts. You will start with a completely blank slate.")) return;
+  state = {
+    version: 1,
+    schemaVersion: 110,
+    preferences: structuredClone(defaultPreferences),
+    trades: [],
+    dailyPlans: {},
+    dailyReviews: {},
+    redNews: [],
+    sops: [{
+      id: "sop-default",
+      version: 1,
+      name: "My First Setup",
+      createdAt: todayISO(),
+      status: "active",
+      checklistLabels: structuredClone(defaultPreferences.checklistLabels),
+      market: "Forex",
+      timeframe: "All"
+    }],
+    accounts: [{
+      id: "acct-default",
+      sopId: "sop-default",
+      name: "Main Account",
+      type: "live",
+      balance: 10000,
+      currency: "USD"
+    }],
+    activeSopId: "sop-default",
+    activeAccountId: "acct-default",
+    backtests: [],
+    rewardMission: null,
+    points: 0,
+    level: 1,
+    longGame: state.longGame ? structuredClone(state.longGame) : {}
+  };
+  
+  if (state.longGame) {
+    state.longGame.events = [];
+    state.longGame.milestones = {};
+  }
+  
+  saveState();
+  resetTradeForm();
+  renderAll();
+  toast("All data cleared. Starting fresh.", "success");
 }
 
 function resetDemo() {
@@ -4154,6 +4250,7 @@ document.getElementById("importJsonInput")?.addEventListener("change", (event) =
   }
 });
 document.getElementById("resetBtn")?.addEventListener("click", resetDemo);
+document.getElementById("clearDataBtn")?.addEventListener("click", clearAllData);
 document.getElementById("addSopBtn")?.addEventListener("click", () => openSopModal());
 document.getElementById("addAccountBtn")?.addEventListener("click", () => openAccountModal());
 document.getElementById("journalAddSopBtn")?.addEventListener("click", () => openSopModal());
@@ -5787,34 +5884,86 @@ function showImportPreview(incoming) {
     renderDualLineChart("importCompareChart", currentSeries, mergedSeries);
   }, 100);
   
-  document.getElementById("btnConfirmMerge")?.addEventListener("click", () => {
+  document.getElementById("btnConfirmMerge")?.addEventListener("click", async () => {
+    window.isImporting = true;
+    // 0. Preferences
+    if (incoming.preferences && typeof incoming.preferences === "object") {
+      const mergedSetups = [...new Set([
+        ...(state.preferences?.setups || []),
+        ...(incoming.preferences.setups || [])
+      ])];
+      state.preferences = {
+        ...state.preferences,
+        ...incoming.preferences,
+        setups: mergedSetups.length > 0 ? mergedSetups : state.preferences?.setups,
+        checklistLabels: {
+          ...(state.preferences?.checklistLabels || {}),
+          ...(incoming.preferences.checklistLabels || {})
+        }
+      };
+    }
+
+    // 1. Trades
     state.trades = mergedTrades;
-    incoming.sops.forEach(inSop => {
+
+    // 2. SOPs
+    (incoming.sops || []).forEach(inSop => {
       const idx = state.sops.findIndex(s => s.id === inSop.id);
       if (idx >= 0) state.sops[idx] = { ...state.sops[idx], ...inSop };
       else state.sops.push(inSop);
     });
-    incoming.accounts.forEach(inAcct => {
+
+    // 3. Accounts
+    (incoming.accounts || []).forEach(inAcct => {
       const idx = state.accounts.findIndex(a => a.id === inAcct.id);
-      if (idx >= 0) state.accounts[idx] = inAcct;
+      if (idx >= 0) state.accounts[idx] = { ...state.accounts[idx], ...inAcct };
       else state.accounts.push(inAcct);
     });
-    
-    saveState();
+
+    // 4. Daily Plans & Reviews
+    if (incoming.dailyPlans) {
+      for (const [day, plan] of Object.entries(incoming.dailyPlans)) {
+        state.dailyPlans[day] = { ...(state.dailyPlans[day] || {}), ...plan };
+      }
+    }
+    if (incoming.dailyReviews) {
+      for (const [day, review] of Object.entries(incoming.dailyReviews)) {
+        state.dailyReviews[day] = { ...(state.dailyReviews[day] || {}), ...review };
+      }
+    }
+
+    // 6. Active Pointers
+    if (incoming.activeSopId && incoming.activeSopId !== "sop-default") {
+       state.activeSopId = incoming.activeSopId;
+    }
+    if (incoming.activeAccountId && incoming.activeAccountId !== "acc-default") {
+       state.activeAccountId = incoming.activeAccountId;
+    }
+
+    state = ensureSopState(state);
+    window.state = state;
+
+    await Promise.race([saveState(), new Promise(r => setTimeout(r, 2000))]);
     closeModal();
     playSound("success");
     renderAll();
-    toast("Data merged successfully.");
+    toast("Data merged successfully.", "success");
+    setTimeout(() => { window.isImporting = false; }, 2000);
   });
   
-  document.getElementById("btnConfirmOverwrite")?.addEventListener("click", () => {
-    if (!confirm("Are you absolutely sure you want to delete all current data and restore this backup? This cannot be undone.")) return;
-    state = incoming;
-    saveState();
+  document.getElementById("btnConfirmOverwrite")?.addEventListener("click", async () => {
+    window.isImporting = true;
+    // confirm removed to prevent silent failures
+    state = ensureSopState(normalizeState(incoming));
+    window.state = state;
+    await saveState();
     closeModal();
-    playSound("success");
+    resetTradeForm();
+    if (window.appleAudioEngine) window.appleAudioEngine.play("checklist");
+    else playSound("success");
     renderAll();
-    toast("Database fully restored.");
+    toast("Database fully restored from backup.", "success");
+    setTimeout(() => { window.isImporting = false; }, 2000);
   });
 }
 
@@ -5973,7 +6122,7 @@ function initLayoutListeners() {
 
 async function initApp() {
   try {
-    const APP_VERSION = "v92-cache-purge";
+    const APP_VERSION = "v200-cache-purge";
     try {
       if (localStorage.getItem("trd_app_version") !== APP_VERSION) {
         localStorage.setItem("trd_app_version", APP_VERSION);
@@ -6034,7 +6183,16 @@ async function initApp() {
     window.addEventListener("offline", updateSyncStatus);
     
     // Register service worker with version update banner
-    if ("serviceWorker" in navigator) {
+    
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.getRegistrations().then(function(registrations) {
+    for(let registration of registrations) {
+      registration.unregister();
+    }
+  });
+}
+
+if (false && "serviceWorker" in navigator) {
       navigator.serviceWorker.register("sw.js").then((reg) => {
         reg.update();
         if (reg.waiting) {

@@ -3908,8 +3908,12 @@ function clearAllData() {
     state.longGame.events = [];
     state.longGame.milestones = {};
   }
+  window.state = state;
   
   saveState();
+  if (window.TRDCloudSync && window.TRDCloudSync.pushToCloudImmediate) {
+    window.TRDCloudSync.pushToCloudImmediate();
+  }
   resetTradeForm();
   renderAll();
   toast("All data cleared. Starting fresh.", "success");

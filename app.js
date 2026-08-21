@@ -610,6 +610,8 @@ function normalizeTrade(trade) {
     grade: trade.grade || "B",
     sopId: trade.sopId,
     accountId: trade.accountId,
+    images: trade.images || [],
+    imagesCloudStripped: trade.imagesCloudStripped || false,
     risk: (() => { const n = Number(trade.risk); return (!isNaN(n) && isFinite(n)) ? n : 0; })(),
     rMultiple: (() => { if (trade.rMultiple === undefined || trade.rMultiple === "") return ""; const n = Number(trade.rMultiple); return (!isNaN(n) && isFinite(n)) ? n : ""; })(),
     pnl: (() => { if (trade.pnl === "" || trade.pnl == null) return 0; const n = Number(trade.pnl); return (!isNaN(n) && isFinite(n)) ? n : 0; })(),
@@ -2514,6 +2516,10 @@ function renderPlaybook() {
 function deleteSop(id) {
   const sop = state.sops.find((s) => s.id === id);
   if (!sop) return;
+  if (state.sops.length <= 1) {
+    alert("You must have at least one SOP. You cannot delete the last remaining SOP.");
+    return;
+  }
   const tradeCount = state.trades.filter((t) => t.sopId === id).length;
   const msg = tradeCount
     ? `Delete SOP "${sop.name}" and its ${tradeCount} trade(s)? This cannot be undone.`
@@ -3922,6 +3928,7 @@ function clearAllData() {
 function resetDemo() {
   if (!confirm("Reset to demo data? This replaces current local data.")) return;
   state = defaultState();
+  window.state = state;
   saveState();
   resetTradeForm();
   renderAll();
@@ -4731,6 +4738,7 @@ document.getElementById("settingsForm")?.addEventListener("submit", (event) => {
   };
   if (!state.preferences.setups.length) state.preferences.setups = [...defaultPreferences.setups];
   state = ensureSopState(state);
+  window.state = state;
   saveState();
   resetTradeForm();
   renderAll();

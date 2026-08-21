@@ -341,7 +341,7 @@ function defaultState() {
   const base = {
     version: 1,
     schemaVersion: 110,
-    preferences: structuredClone(defaultPreferences),
+    preferences: { ...structuredClone(defaultPreferences), setups: ["My First Setup"] },
     trades: shouldLoadDemo ? getDemoTrades() : [],
     dailyPlans: {
       [todayISO()]: { bias: "Wait for confirmation near key levels.", levels: "Previous high / low, session open", allowedSetups: "Opening Drive, Liquidity Sweep", maxLossR: -2, maxTrades: 3 }
@@ -2528,6 +2528,9 @@ function deleteSop(id) {
   state.trades = state.trades.filter((t) => t.sopId !== id);
   state.accounts = state.accounts.filter((a) => a.sopId !== id);
   state.sops = state.sops.filter((s) => s.id !== id);
+  if (state.preferences && state.preferences.setups) {
+    state.preferences.setups = state.preferences.setups.filter(name => name !== sop.name);
+  }
   if (state.activeSopId === id) {
     state.activeSopId = state.sops[0]?.id || "";
     state.activeAccountId = accountsForSop(state.activeSopId)[0]?.id || "";

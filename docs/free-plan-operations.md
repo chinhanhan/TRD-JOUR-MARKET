@@ -43,4 +43,4 @@ npx firebase-tools deploy --only firestore:rules --project trd-journal-market
 npx firebase-tools deploy --only hosting
 ```
 
-`functions/` 中依赖用于本地回归测试；当前 `firebase.json` 未注册 Functions，不会部署后端。GitHub 的 `main` 推送会自动发布相同的 `dist/` 到 GitHub Pages。
+`functions/` 中依赖用于本地回归测试；当前 `firebase.json` 未注册 Functions，不会部署后端。GitHub 的 `main` 推送执行自动回归检查和 `dist/` 构建，不发布 GitHub Pages；正式网站由 Firebase Hosting 提供。

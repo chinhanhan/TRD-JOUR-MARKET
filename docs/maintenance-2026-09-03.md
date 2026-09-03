@@ -141,7 +141,7 @@ node functions/migrate-profiles.cjs --apply
 - Pro 仍仅由管理员修改 Firestore 订阅资料，客户端不能自行升级；开通后实时资料监听和主动查询会刷新权限。云函数代码留作未部署的备选实现。
 - 生产资料只读检查：1 个已有 Pro 资料，无待补充的到期时间字段，无无效到期字段；未修改现有会员或交易数据。
 - 本次 47 项普通回归测试通过，Firestore 规则用例单独运行；公开产物仍为 18 个文件。新增人工开通查询、待审核反馈、账号切换与支持链接回归测试。
-- 部署仅涉及 Firestore Rules、Firebase Hosting 和 GitHub Pages，不启用结算账户或付费服务。
+- 部署仅涉及 Firestore Rules、Firebase Hosting；GitHub 保存源码并执行检查，不启用结算账户或付费服务。
 
 
 ### v205 发布结果
@@ -152,3 +152,5 @@ node functions/migrate-profiles.cjs --apply
 - 部署后 Cloud Billing 再次确认 `billingEnabled: false`，没有升级套餐。
 - Firestore 模拟器规则测试通过；人工开通流程的浏览器测试使用合成账号，没有创建真实订单或会员。
 - 后续维护以免费方案为准。v204 的 Blaze / webhook 配置步骤仅作为未启用方案的历史记录。
+
+- GitHub 正式分支已推送 v205。后续核查发现仓库从未启用 Pages，旧流程在配置 Pages 时返回 404（此前版本也失败）。现改为纯回归检查与公开产物构建，Firebase 作为唯一正式托管；没有新增第二套托管服务。

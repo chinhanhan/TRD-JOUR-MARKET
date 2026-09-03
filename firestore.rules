@@ -1,20 +1,41 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // User Isolation: Users can only read, write, and delete their own private profile & data
+    function owner(uid) { return request.auth != null && request.auth.uid == uid; }
+    function paid(uid) {
+      let subscription = get(/databases/$(database)/documents/users/$(uid)).data.get('subscription', {});
+      return subscription.get('plan', 'free') == 'pro'
+        && !(subscription.get('status', 'active') in ['expired', 'revoked', 'unpaid'])
+        && (subscription.get('tier', '') == 'lifetime'
+          || (subscription.get('validUntilTimestamp', null) is timestamp
+            && subscription.validUntilTimestamp > request.time));
+    }
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-      match /{document=**} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if owner(userId);
+      allow create: if owner(userId)
+        && request.resource.data.keys().hasOnly(['email', 'createdAt', 'subscription'])
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.subscription == { 'plan': 'free', 'status': 'active', 'limit': 20 };
+      // Subscriptions are server-owned, including expiration and revocation.
+      allow update: if owner(userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastActiveAt', 'tradeCount']);
+      match /data/{documentId} {
+        allow read: if owner(userId);
+        function validState() { return documentId == 'state'
+          && request.resource.data.ownerUid == userId
+          && request.resource.data.trades is list; }
+        allow create: if owner(userId) && validState()
+          && (request.resource.data.trades.size() <= 20 || paid(userId));
+        // Expired subscribers can keep editing or deleting existing history.
+        // The editable profile.tradeCount field is never trusted for quota.
+        allow update: if owner(userId) && validState()
+          && (request.resource.data.trades.size() <= 20
+            || request.resource.data.trades.size() <= resource.data.trades.size()
+            || paid(userId));
       }
     }
-
-    // One-Time Anti-Abuse Redeem Key Vault:
-    // Once created with usedBy = UserA, only UserA can read/write. No other user can overwrite or steal!
-    match /redeemed_keys/{keyId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null && request.resource.data.usedBy == request.auth.uid;
-      allow update: if request.auth != null && resource.data.usedBy == request.auth.uid;
-    }
+    // Activation inventory, redemption limits, legacy redeemed_keys, billing
+    // events and fulfillment records are accessible only through Admin SDK.
+    match /{document=**} { allow read, write: if false; }
   }
 }

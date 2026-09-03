@@ -6,7 +6,9 @@
   "scripts": {
     "start": "npx serve -l 5000 .",
     "dev": "npx serve -l 5000 .",
-    "deploy": "firebase deploy"
+    "prepare:hosting": "node scripts/prepare-hosting.cjs",
+    "deploy": "npx firebase-tools deploy --only hosting",
+    "test": "node --test tests/*.test.cjs"
   },
   "keywords": [
     "trading",

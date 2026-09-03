@@ -14,7 +14,9 @@ function uuidv4() {
  * @returns {Promise<boolean>} True if save was successful.
  */
 async function safeSaveLongGame() {
+  const generation = localGeneration;
   const success = await saveState();
+  if (generation !== localGeneration) return false;
   if (!success) {
     if (typeof toast === 'function') {
       toast("Your entry could not be saved. Please retry.", "error");
@@ -90,7 +92,7 @@ function renderLongGame() {
         <div style="background: var(--bg-card); border: 1px solid var(--hairline-strong); border-radius: 8px; padding: 12px; font-size: 13px;">
           <div style="color: var(--muted); font-size: 11px; margin-bottom: 6px;">${new Date(entry.date).toLocaleDateString()}</div>
           <div style="margin-bottom: 8px; white-space: pre-wrap;">${safeFn(entry.content)}</div>
-          <button class="ghost-button compact" type="button" onclick="window.convertRawToEvent('${safeFn(entry.id)}')" style="font-size: 11px; padding: 2px 8px; border-radius: 9999px;">Convert to Event</button>
+          <button class="ghost-button compact" type="button" onclick="window.convertRawToEvent(${window.safeJs(entry.id)})" style="font-size: 11px; padding: 2px 8px; border-radius: 9999px;">Convert to Event</button>
         </div>
       `).join("");
       
@@ -513,7 +515,7 @@ if (typeof window.saveSopFromModal === 'function') {
  * Important Side Effects: Displays the #lgEmergencyBanner if triggers are met.
  */
 function checkLongGameTriggers() {
-  const trades = window.closedTrades ? window.closedTrades() : [];
+  const trades = (window.closedTrades ? window.closedTrades() : []).slice().sort((a, b) => String(a.closeTime || a.closedAt || a.date || "").localeCompare(String(b.closeTime || b.closedAt || b.date || "")));
   const lg = state.longGame;
   const config = lg.customAlertConfig || { consecutiveLosses: 4, sopChangeWindowDays: 7, shockBreakRatioDelta: 0.2 };
   
@@ -585,14 +587,8 @@ function checkLongGameTriggers() {
   }
 }
 
-// Intercept saveTradeFromForm to trigger checkLongGameTriggers
-if (typeof window.saveTradeFromForm === 'function') {
-  const origSaveTrade = window.saveTradeFromForm;
-  window.saveTradeFromForm = function() {
-    origSaveTrade();
-    setTimeout(checkLongGameTriggers, 500);
-  };
-}
+// Run only after a successful local commit; do not replace the form handler.
+window.addEventListener('trade-saved', checkLongGameTriggers);
 
 // ==========================================
 /**
@@ -604,14 +600,14 @@ function generateLongGameObservations() {
   const lg = state.longGame;
   let observations = [];
   
-  const trades = window.closedTrades ? window.closedTrades() : [];
+  const trades = (window.closedTrades ? window.closedTrades() : []).slice().sort((a, b) => String(a.closeTime || a.closedAt || a.date || "").localeCompare(String(b.closeTime || b.closedAt || b.date || "")));
   
   // 1. SOP Violation Trend (Last 20 vs Previous 20)
   if (trades.length >= 40) {
     const last20 = trades.slice(-20);
     const prev20 = trades.slice(-40, -20);
-    const last20Violations = last20.filter(t => t.sopStatus === "violated").length;
-    const prev20Violations = prev20.filter(t => t.sopStatus === "violated").length;
+    const last20Violations = last20.filter(t => window.getTradeRuleStatus(t) === "violated").length;
+    const prev20Violations = prev20.filter(t => window.getTradeRuleStatus(t) === "violated").length;
     
     if (last20Violations < prev20Violations) {
       observations.push({
@@ -633,7 +629,7 @@ function generateLongGameObservations() {
   // 2. Repeated SHOCK reflections
   if (lg.events) {
     const shocks = lg.events.filter(e => e.type === "SHOCK" && e.reflection && e.reflection.q1);
-    const shockCauses = {};
+    const shockCauses = Object.create(null);
     shocks.forEach(s => {
       const cause = s.reflection.q1;
       if (!shockCauses[cause]) shockCauses[cause] = [];
@@ -700,12 +696,12 @@ function renderObservations() {
     obsFeed.innerHTML = obs.map(o => `
       <div style="background: var(--bg-card); border: 1px solid var(--hairline-strong); border-radius: 8px; padding: 12px; font-size: 13px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-          <strong style="color: var(--ink);">${o.level}</strong>
-          ${o.confidence ? `<span style="font-size: 11px; color: var(--muted);">Confidence: ${o.confidence}</span>` : ""}
+          <strong style="color: var(--ink);">${window.safe(o.level)}</strong>
+          ${o.confidence ? `<span style="font-size: 11px; color: var(--muted);">Confidence: ${window.safe(o.confidence)}</span>` : ""}
         </div>
-        <div style="margin-bottom: 8px; color: var(--ink);">${o.text}</div>
+        <div style="margin-bottom: 8px; color: var(--ink);">${window.safe(o.text)}</div>
         <div style="font-size: 11px; color: var(--muted); padding-top: 8px; border-top: 1px dashed var(--hairline-strong);">
-          <strong>Evidence:</strong><br>• ${o.evidence}
+          <strong>Evidence:</strong><br>• ${window.safe(o.evidence).replaceAll("&lt;br&gt;", "<br>")}
         </div>
       </div>
     `).join("");
@@ -769,13 +765,13 @@ function renderThenNow() {
     <div style="background: var(--bg-card); border: 1px solid var(--hairline-strong); border-radius: 8px; padding: 16px; font-size: 13px;">
       <div style="display: flex; gap: 16px;">
         <div style="flex: 1; border-right: 1px solid var(--hairline-strong); padding-right: 16px;">
-          <div style="font-weight: 600; color: var(--muted); margin-bottom: 8px;">THEN (${prev.name})</div>
+          <div style="font-weight: 600; color: var(--muted); margin-bottom: 8px;">THEN (${window.safe(prev.name)})</div>
           <div>Shocks: ${prevShocks}</div>
           <div>Breakthroughs: ${prevBreakthroughs}</div>
           <div>SOP changes: ${prevSopChanges}</div>
         </div>
         <div style="flex: 1;">
-          <div style="font-weight: 600; color: var(--ink); margin-bottom: 8px;">NOW (${currentSeason.name})</div>
+          <div style="font-weight: 600; color: var(--ink); margin-bottom: 8px;">NOW (${window.safe(currentSeason.name)})</div>
           <div>Shocks: ${currShocks}</div>
           <div>Breakthroughs: ${currBreakthroughs}</div>
           <div>SOP changes: ${currSopChanges}</div>
@@ -878,7 +874,7 @@ function renderTrendChart() {
   if (!window._lgTrendChart) {
     if (typeof Chart === "undefined") {
       // Chart.js not loaded yet, retry shortly
-      setTimeout(renderTrendChart, 500);
+      // Keep the rest of the journal usable when the chart CDN is unavailable.
       return;
     }
   }

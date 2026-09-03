@@ -56,6 +56,19 @@ const uid = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const safe = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[c]);
 const safeClosest = (target, selector) => (target && typeof target.closest === "function") ? target.closest(selector) : null;
 window.safe = safe;
+// Encode a JavaScript string inside an HTML event attribute in both contexts.
+const safeJs = value => safe(JSON.stringify(String(value ?? "")));
+window.safeJs = safeJs;
+function externalUrl(value, image = false) {
+  const text = String(value ?? "").trim();
+  if (image && /^data:image\/(?:png|jpeg|gif|webp|avif);base64,[a-z0-9+/=\s]+$/i.test(text)) return text;
+  try {
+    const url = new URL(text);
+    return ['https:', 'http:'].includes(url.protocol) && !url.username && !url.password ? url.href : '';
+  } catch { return ''; }
+}
+window.externalUrl = externalUrl;
+
 
 function parseMarkdown(text) {
   if (!text) return "";
@@ -159,6 +172,13 @@ const defaultSopDetails = {
 let journalView = "timeline";
 
 let state = null;
+let localOwnerUid = null;
+let localGeneration = 0;
+let observedState = {};
+let durableState = null;
+let localWriteQueue = Promise.resolve();
+let accountSwitchQueue = Promise.resolve();
+const storageKeyFor = uid => `${STORAGE_KEY}:${uid ? `user:${uid}` : 'guest'}`;
 let selectedDay = todayISO();
 let activeModule = null;
 let language = localStorage.getItem(LANGUAGE_KEY) || "en";
@@ -328,10 +348,10 @@ function getDemoTrades() {
   ];
 }
 
-window.clearDemoTrades = function() {
+window.clearDemoTrades = async function() {
   state.trades = (state.trades || []).filter(t => !t.isDemo);
   localStorage.setItem("trd_demo_cleared", "true");
-  saveState();
+  if (!await saveState()) return;
   renderAll();
   if (window.toast) window.toast("✨ Demo data cleared. Ready for live journaling!", "success");
 };
@@ -388,10 +408,9 @@ async function idbGet(key) {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, "readonly");
-    const store = tx.objectStore(STORE_NAME);
-    const request = store.get(key);
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+    const request = tx.objectStore(STORE_NAME).get(key);
+    tx.oncomplete = () => { db.close(); resolve(request.result); };
+    tx.onabort = tx.onerror = () => { db.close(); reject(tx.error || request.error || new Error("Local read failed")); };
   });
 }
 
@@ -399,10 +418,9 @@ async function idbSet(key, val) {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, "readwrite");
-    const store = tx.objectStore(STORE_NAME);
-    const request = store.put(val, key);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
+    const request = tx.objectStore(STORE_NAME).put(val, key);
+    tx.oncomplete = () => { db.close(); resolve(); };
+    tx.onabort = tx.onerror = () => { db.close(); reject(tx.error || request.error || new Error("Local save failed")); };
   });
 }
 
@@ -431,40 +449,19 @@ async function migrateDatabase(raw) {
 }
 
 async function loadState() {
-  try {
-    let idbSaved = await idbGet(STORAGE_KEY);
-    if (idbSaved) {
-      const oldSchema = idbSaved.schemaVersion || 1;
-      idbSaved = await migrateDatabase(idbSaved);
-      if (oldSchema < 110) await idbSet(STORAGE_KEY, idbSaved);
-      return normalizeState(idbSaved);
-    }
-  } catch (e) {
-    console.error("IDB load failed", e);
+  const key = storageKeyFor(localOwnerUid);
+  let saved = await idbGet(key);
+  if (!saved && localOwnerUid) {
+    // Only adopt a legacy cache if it explicitly identifies this user. Older
+    // unowned caches remain untouched instead of being uploaded to a new user.
+    const legacy = await idbGet(STORAGE_KEY);
+    if (legacy?.ownerUid === localOwnerUid) saved = legacy;
   }
-  const saved = localStorage.getItem(STORAGE_KEY);
   if (saved) {
-    try {
-      let parsed = JSON.parse(saved);
-      parsed = await migrateDatabase(parsed);
-      await idbSet(STORAGE_KEY, parsed);
-      return normalizeState(parsed);
-    } catch (e) {
-      console.error("localStorage load failed", e);
-    }
+    if ((saved.ownerUid || null) !== localOwnerUid) throw new Error("Local account ownership mismatch.");
+    return normalizeState(await migrateDatabase(saved));
   }
-  const legacy = localStorage.getItem(LEGACY_KEY);
-  if (legacy) {
-    try {
-      let parsed = { trades: JSON.parse(legacy) };
-      parsed = await migrateDatabase(parsed);
-      await idbSet(STORAGE_KEY, parsed);
-      return normalizeState(parsed);
-    } catch (e) {
-      console.error("Legacy load failed", e);
-    }
-  }
-  return defaultState();
+  return localOwnerUid ? normalizeState({ preferences: { setups: ["My First Setup"] } }) : defaultState();
 }
 
 function normalizeState(raw) {
@@ -510,9 +507,15 @@ function normalizeState(raw) {
   return ensureSopState({
     version: 1,
     schemaVersion: raw.schemaVersion || 110,
+    ownerUid: localOwnerUid,
+    _sync: raw._sync || { version: 1, clock: 0, entries: {} },
     preferences: {
       ...structuredClone(defaultPreferences),
       ...(raw.preferences || {}),
+      setups: raw.preferences?.setups ?? (() => {
+        const names = [...new Set([...(raw.sops || []).map(sop => sop.name), ...(raw.trades || []).map(trade => trade.setup)].filter(Boolean))];
+        return names.length ? names : ["My First Setup"];
+      })(),
       checklistLabels: {
         ...structuredClone(defaultPreferences.checklistLabels),
         ...(raw.preferences?.checklistLabels || {})
@@ -526,7 +529,7 @@ function normalizeState(raw) {
     accounts: raw.accounts || [],
     activeSopId: raw.activeSopId || "",
     activeAccountId: raw.activeAccountId || "",
-    backtests: [],
+    backtests: Array.isArray(raw.backtests) ? raw.backtests : [],
     rewardMission: raw.rewardMission || null,
     unlockedBadges: raw.unlockedBadges || {},
     experience: {
@@ -598,6 +601,8 @@ function normalizeTrade(trade) {
 
   return {
     id: String(trade.id || uid()),
+    updatedAt: trade.updatedAt || "",
+    isDemo: Boolean(trade.isDemo),
     status,
     date: dateVal,
     closedAt: trade.closedAt || (status === "closed" ? dateVal : ""),
@@ -614,7 +619,7 @@ function normalizeTrade(trade) {
     imagesCloudStripped: trade.imagesCloudStripped || false,
     risk: (() => { const n = Number(trade.risk); return (!isNaN(n) && isFinite(n)) ? n : 0; })(),
     rMultiple: (() => { if (trade.rMultiple === undefined || trade.rMultiple === "") return ""; const n = Number(trade.rMultiple); return (!isNaN(n) && isFinite(n)) ? n : ""; })(),
-    pnl: (() => { if (trade.pnl === "" || trade.pnl == null) return 0; const n = Number(trade.pnl); return (!isNaN(n) && isFinite(n)) ? n : 0; })(),
+    pnl: (() => { if (trade.pnl === "" || trade.pnl == null) { const legacyR = Number(trade.rMultiple); const risk = Number(trade.risk); return trade.rMultiple !== "" && Number.isFinite(legacyR) && Number.isFinite(risk) && risk > 0 ? legacyR * risk : 0; } const n = Number(trade.pnl); return (!isNaN(n) && isFinite(n)) ? n : 0; })(),
     rule: (trade.ruleStatus === "incomplete" || trade.rule === "incomplete" || trade.rule === "Incomplete") ? "incomplete" : (trade.ruleStatus === "violated" || trade.rule === false || trade.rule === "false" ? false : true),
     ruleStatus: (() => {
       // Priority: explicit ruleStatus > derive from rule field
@@ -681,6 +686,7 @@ function ensureSopState(rawState) {
     }
   }
   const existingAccounts = (rawState.accounts || []).map((account) => ({
+    ...account,
     id: account.id || makeAccountId(account.sopId || existingSops[0]?.id || "sop-main", account.name),
     sopId: account.sopId || existingSops[0]?.id || "",
     name: account.name || "Main Account",
@@ -722,19 +728,68 @@ function ensureSopState(rawState) {
 }
 
 async function saveState(options = {}) {
+  window.state = state;
+  const generation = localGeneration;
+  const key = storageKeyFor(localOwnerUid);
   try {
-    window.state = state;
-    await idbSet(STORAGE_KEY, JSON.parse(JSON.stringify(state)));
-    if (!options.skipCloud && window.TRDCloudSync && typeof window.TRDCloudSync.schedulePush === "function") {
-      window.TRDCloudSync.schedulePush();
+    state.ownerUid = localOwnerUid;
+    if (!options.skipCloud && !options.skipCloudPush) window.TRDStateSync.stamp(state, observedState);
+    const snapshot = JSON.parse(JSON.stringify(state));
+    observedState = snapshot;
+    const write = localWriteQueue.catch(() => {}).then(() => idbSet(key, snapshot));
+    localWriteQueue = write;
+    await write;
+    if (generation === localGeneration) {
+      durableState = snapshot;
+      if (!options.skipCloud && !options.skipCloudPush) window.TRDCloudSync?.schedulePush();
     }
     return true;
   } catch (e) {
     console.error("IDB save failed", e);
+    if (generation === localGeneration) window.toast?.("Not saved on this device. Please retry or export a backup before closing.", "error");
     return false;
   }
 }
 window.saveState = saveState;
+window.TRDLocalStore = {
+  getOwnerUid: () => localOwnerUid,
+  getStorageKey: () => storageKeyFor(localOwnerUid),
+  getSnapshot: () => durableState ? structuredClone(durableState) : null,
+  getCachedProfile: uid => idbGet(`${storageKeyFor(uid)}:profile`),
+  cacheProfile: (uid, profile) => idbSet(`${storageKeyFor(uid)}:profile`, profile),
+  switchUser(uid) {
+    const nextUid = uid || null;
+    localGeneration++;
+    window.isImporting = false;
+    document.querySelectorAll('.sheet-backdrop.active').forEach(sheet => closeSheet(sheet.id));
+    const detailBody = document.getElementById('detailSheetBody');
+    if (detailBody) detailBody.replaceChildren();
+    accountSwitchQueue = accountSwitchQueue.catch(() => {}).then(async () => {
+      window.TRDCloudSync?.stop();
+      await localWriteQueue.catch(() => {});
+      localOwnerUid = nextUid;
+      state = await loadState();
+      state.ownerUid = nextUid;
+      window.state = state;
+      observedState = structuredClone(state);
+      if (!await saveState({ skipCloud: true })) throw new Error("Unable to save this account on the device.");
+      renderAll();
+      resetTradeForm();
+    });
+    return accountSwitchQueue;
+  },
+  async applyRemote(remote, uid) {
+    if (uid !== localOwnerUid) return false;
+    state = normalizeState(remote);
+    state.ownerUid = uid;
+    window.state = state;
+    observedState = structuredClone(state);
+    const generation = localGeneration;
+    const ok = await saveState({ skipCloud: true });
+    if (ok && generation === localGeneration) renderAll({ preserveDrafts: true });
+    return ok;
+  }
+};
 
 function activeSop() {
   return state.sops.find((sop) => sop.id === state.activeSopId && !sop.archivedAt) || state.sops.filter(s => !s.archivedAt)[0];
@@ -782,7 +837,8 @@ function sopName(id) {
 }
 
 function closedTrades(trades = visibleTrades()) {
-  return trades.filter((trade) => trade.status !== "open");
+  return trades.filter((trade) => trade.status !== "open").sort((a, b) =>
+    String(a.closeTime || a.closedAt || a.date || '').localeCompare(String(b.closeTime || b.closedAt || b.date || '')) || String(a.id).localeCompare(String(b.id)));
 }
 
 function openTrades(trades = visibleTrades()) {
@@ -809,20 +865,13 @@ function ruleTag(trade) {
 }
 
 function rValue(trade) {
-  if (!trade) return 0;
-  if (trade.rMultiple !== undefined && trade.rMultiple !== "" && !isNaN(Number(trade.rMultiple))) {
-    const val = Number(trade.rMultiple);
-    return Number.isFinite(val) ? val : 0;
-  }
-  const riskNum = Number(trade.risk || 0);
-  if (riskNum > 0) {
-    const res = Number(trade.pnl || 0) / riskNum;
-    return Number.isFinite(res) ? res : 0;
-  }
-  const pnlNum = Number(trade.pnl || 0);
-  if (pnlNum !== 0) return pnlNum > 0 ? 1 : -1;
-  return 0;
+  const risk = Number(trade?.risk);
+  const pnl = Number(trade?.pnl);
+  // Missing/invalid risk contributes no fabricated R to aggregate statistics.
+  if (!Number.isFinite(risk) || risk <= 0 || !Number.isFinite(pnl)) return 0;
+  return pnl / risk;
 }
+window.rValue = rValue;
 
 function formatR(value) {
   const num = Number(value || 0);
@@ -965,7 +1014,7 @@ function groupBy(trades, key) {
     map[value] ||= [];
     map[value].push(trade);
     return map;
-  }, {});
+  }, Object.create(null));
 }
 
 function dateRange(start, end) {
@@ -1089,7 +1138,7 @@ function timelineGroups(trades = visibleTrades()) {
     groups[day] ||= [];
     groups[day].push(trade);
     return groups;
-  }, {});
+  }, Object.create(null));
 }
 
 function updateChecklistLabelsInUI() {
@@ -1236,7 +1285,10 @@ function renderBadgeShowcase() {
   if (tag) tag.textContent = `${unlockedCount} / ${BADGES.length} Unlocked`;
 }
 
-function renderAll() {
+function renderAll({ preserveDrafts = false } = {}) {
+  const drafts = preserveDrafts ? Array.from(document.querySelectorAll('.sheet-backdrop.active input, .sheet-backdrop.active select, .sheet-backdrop.active textarea, .view.active input, .view.active select, .view.active textarea'))
+    .filter(el => el.type !== 'file')
+    .map(el => ({ el, id: el.id, value: el.value, checked: el.checked, focused: el === document.activeElement, start: el.selectionStart, end: el.selectionEnd })) : [];
   updateChecklistLabelsInUI();
   applyLanguage();
   populateStaticLabels();
@@ -1275,6 +1327,18 @@ function renderAll() {
   renderMissions();
   evaluateBadges();
   renderBadgeShowcase();
+
+  window.css3dCarousel?.updateDynamicIsland();
+  window.css3dCarousel?.updateBentoStats();
+
+  // A background sync must not erase a plan or trade currently being typed.
+  drafts.forEach(({ el, id, value, checked, focused, start, end }) => {
+    if (!el.isConnected) el = id ? document.getElementById(id) : null;
+    if (!el) return;
+    if (el.tagName !== 'SELECT' || Array.from(el.options).some(option => option.value === value)) el.value = value;
+    if (el.type === 'checkbox' || el.type === 'radio') el.checked = checked;
+    if (focused) { el.focus({ preventScroll: true }); if (start != null) el.setSelectionRange(start, end); }
+  });
 
   // SaaS Quota Badge real-time refresh
   if (window.TRDAuth && typeof window.TRDAuth.updateQuotaBadge === "function") {
@@ -1903,7 +1967,7 @@ function timelineCard(trade) {
       <p>${safe(trade.setup)} · ${safe(accountName(trade.accountId))}</p>
     </div>
     <div class="timeline-evidence">
-      ${img ? `<img class="thumbnail" src="${img}" alt="Chart screenshot" />` : ""}
+      ${img ? `<img class="thumbnail" src="${safe(img)}" alt="Chart screenshot" />` : ""}
       <span class="tag session" style="font-size:10px; font-weight:600; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1);">${sessionEmoji}</span>
       ${trade.tradingViewUrl ? '<span class="tag info">TV</span>' : ""}
       <span class="tag">${safe(trade.grade)}</span>
@@ -1911,10 +1975,10 @@ function timelineCard(trade) {
     </div>
     <div class="muted" style="margin:8px 0; font-size:0.88rem; line-height:1.5;">${parseMarkdown(safe(trade.status === "open" ? trade.entryPlan || "In progress" : trade.exitNote || trade.note || "Record completed."))}</div>
     <div class="row-actions">
-      <button class="text-button" data-detail="${trade.id}">View</button>
-      <button class="text-button" data-edit="${trade.id}">${trade.status === "open" ? "Update" : "Edit"}</button>
-      ${trade.status === "open" ? `<button class="text-button" data-close-trade="${trade.id}">Close Trade</button>` : ""}
-      <button class="delete-button" data-delete="${trade.id}">Delete</button>
+      <button class="text-button" data-detail="${safe(trade.id)}">View</button>
+      <button class="text-button" data-edit="${safe(trade.id)}">${trade.status === "open" ? "Update" : "Edit"}</button>
+      ${trade.status === "open" ? `<button class="text-button" data-close-trade="${safe(trade.id)}">Close Trade</button>` : ""}
+      <button class="delete-button" data-delete="${safe(trade.id)}">Delete</button>
     </div>
   </article>`;
 }
@@ -1966,8 +2030,8 @@ function tradeRow(trade) {
 
   return `<tr>
     <td>
-      <div style="font-weight:600;">${openDisp}</div>
-      ${trade.status === "closed" ? `<div style="font-size:11px; color:var(--muted);">🔴 ${closeDisp} ${duration ? `(${duration})` : ""}</div>` : '<div style="font-size:11px; color:var(--accent);">🟢 Open</div>'}
+      <div style="font-weight:600;">${safe(openDisp)}</div>
+      ${trade.status === "closed" ? `<div style="font-size:11px; color:var(--muted);">🔴 ${safe(closeDisp)} ${duration ? `(${safe(duration)})` : ""}</div>` : '<div style="font-size:11px; color:var(--accent);">🟢 Open</div>'}
     </td>
     <td>${safe(trade.symbol)} ${trade.direction === "Long" ? "↑" : "↓"}</td>
     <td>${safe(trade.setup)}</td>
@@ -1976,7 +2040,7 @@ function tradeRow(trade) {
     <td>${ruleTag(trade)}</td>
     <td>${mediaBadges(trade)}</td>
     <td>
-      <button class="ghost-button action-trigger-btn" data-trade-actions="${trade.id}" style="padding:4px 8px; min-height:auto;">•••</button>
+      <button class="ghost-button action-trigger-btn" data-trade-actions="${safe(trade.id)}" style="padding:4px 8px; min-height:auto;">•••</button>
     </td>
   </tr>`;
 }
@@ -1989,14 +2053,14 @@ function tradeCard(trade) {
   const closeDisp = trade.status === "closed" ? formatTimeDisplay(trade.closeTime || trade.closedAt) : "Open";
 
   return `<article class="trade-card" style="position:relative;">
-    <button class="ghost-button action-trigger-btn" data-trade-actions="${trade.id}" style="position:absolute; top:12px; right:12px; padding:4px 8px; min-height:auto; font-size:12px; z-index:10;">•••</button>
+    <button class="ghost-button action-trigger-btn" data-trade-actions="${safe(trade.id)}" style="position:absolute; top:12px; right:12px; padding:4px 8px; min-height:auto; font-size:12px; z-index:10;">•••</button>
     <div class="trade-card-head" style="padding-right:32px;">
       <div>
         <strong>${safe(trade.symbol)} ${safe(trade.direction)}</strong>
         <p style="margin-top:2px;">${safe(trade.setup)}</p>
         <div style="font-size:11px; color:var(--muted); margin-top:4px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-          <span>🟢 ${openDisp}</span>
-          ${trade.status === "closed" ? `<span>🔴 ${closeDisp}</span>` : `<span class="tag info" style="font-size:10px;">In Progress</span>`}
+          <span>🟢 ${safe(openDisp)}</span>
+          ${trade.status === "closed" ? `<span>🔴 ${safe(closeDisp)}</span>` : `<span class="tag info" style="font-size:10px;">In Progress</span>`}
           <span class="tag session" style="font-size:10px; font-weight:600; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1);">${trade.session === "New York" ? "🗽 NY" : (trade.session === "London" ? "🇬🇧 LDN" : (trade.session === "Asian" ? "🌏 ASIA" : "⚡ OTHER"))}</span>
           ${durationTag}
         </div>
@@ -2005,11 +2069,11 @@ function tradeCard(trade) {
     </div>
     <div class="trade-card-meta" style="margin-top:8px;">
       <span>${trade.status === "open" ? safe(trade.entryPlan || "In progress") : `Grade ${safe(trade.grade)} | ${ruleTag(trade)}`}</span>
-      ${img ? `<img class="thumbnail" src="${img}" alt="Chart screenshot" />` : ""}
+      ${img ? `<img class="thumbnail" src="${safe(img)}" alt="Chart screenshot" />` : ""}
     </div>
     ${trade.status === "open" ? `
       <div style="margin-top:12px; display:flex; justify-content:flex-end;">
-        <button class="ghost-button" data-close-trade="${trade.id}" style="padding:4px 10px; font-size:11px; min-height:auto;">Close Trade</button>
+        <button class="ghost-button" data-close-trade="${safe(trade.id)}" style="padding:4px 10px; font-size:11px; min-height:auto;">Close Trade</button>
       </div>
     ` : ""}
   </article>`;
@@ -2030,11 +2094,7 @@ function mediaBadges(trade) {
 }
 
 function imageFor(trade) {
-  if (!trade) return "";
-  if (trade.images && Array.isArray(trade.images) && trade.images.length > 0 && trade.images[0]) {
-    return trade.images[0];
-  }
-  return trade.imageData || trade.imageUrl || "";
+  return imagesFor(trade)[0] || "";
 }
 
 function renderAnalytics() {
@@ -2048,7 +2108,7 @@ function renderAnalytics() {
     if (!acc[day]) acc[day] = [];
     acc[day].push(trade);
     return acc;
-  }, {});
+  }, Object.create(null));
   renderGroupedBars("weekdayBars", weekdays);
   renderGroupedBars("directionBars", groupBy(closedTrades(), "direction"));
   
@@ -2056,7 +2116,7 @@ function renderAnalytics() {
   executeAndRenderMonteCarlo();
   
   // Phase 3: Mistake Analytics
-  const mistakeGroup = {};
+  const mistakeGroup = Object.create(null);
   closedTrades().forEach(trade => {
     if (!trade.mistakes || !trade.mistakes.length) return;
     trade.mistakes.forEach(mistake => {
@@ -2081,10 +2141,10 @@ function renderSessionHeatmap() {
 
   const days = ["Mon", "Tue", "Wed", "Thu", "Fri"];
   const sessions = [
-    { key: "Asia", label: "Asia (18:00-03:00 EST)" },
-    { key: "London", label: "London (03:00-09:30 EST)" },
-    { key: "NY_AM", label: "NY Morning (09:30-12:00 EST)" },
-    { key: "NY_PM", label: "NY Afternoon (12:00-16:00 EST)" }
+    { key: "Asia", label: "Asia" },
+    { key: "London", label: "London" },
+    { key: "New York", label: "New York" },
+    { key: "Other", label: "Other / Unspecified" }
   ];
 
   const matrix = {};
@@ -2099,35 +2159,15 @@ function renderSessionHeatmap() {
 
   trades.forEach((trade) => {
     if (!trade.date) return;
-    const dateObj = new Date(trade.date);
+    const dateObj = new Date(`${String(trade.date).slice(0, 10)}T12:00:00`);
     if (isNaN(dateObj.getTime())) return;
     const dayIdx = dateObj.getDay();
     const dayMap = { 1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri" };
     const dayName = dayMap[dayIdx];
     if (!dayName) return;
 
-    let sessionKey = "NY_AM";
-    if (trade.session === "Asian" || trade.session === "Asia") {
-      sessionKey = "Asia";
-    } else if (trade.session === "London") {
-      sessionKey = "London";
-    } else if (trade.session === "New York") {
-      if (trade.openTime && trade.openTime.includes("T")) {
-        const hour = parseInt(trade.openTime.split("T")[1].split(":")[0], 10);
-        sessionKey = (hour >= 12 && hour < 18) ? "NY_PM" : "NY_AM";
-      } else {
-        sessionKey = "NY_AM";
-      }
-    } else if (trade.openTime) {
-      const parts = trade.openTime.split("T")[1];
-      if (parts) {
-        const hour = parseInt(parts.split(":")[0], 10);
-        if (hour >= 18 || hour < 3) sessionKey = "Asia";
-        else if (hour >= 3 && hour < 9) sessionKey = "London";
-        else if (hour >= 9 && hour < 12) sessionKey = "NY_AM";
-        else if (hour >= 12 && hour < 18) sessionKey = "NY_PM";
-      }
-    }
+    const sessionKey = trade.session === 'Asian' || trade.session === 'Asia' ? 'Asia'
+      : ['London', 'New York'].includes(trade.session) ? trade.session : 'Other';
 
     const r = rValue(trade);
     if (matrix[dayName] && matrix[dayName][sessionKey]) {
@@ -2243,7 +2283,7 @@ function renderMaeMfeScatterChart() {
     const title = `${t.symbol} (${t.date}): ${formatR(r)} | MAE: ${t.maeR ?? 'N/A'}R | MFE: +${t.mfeR ?? 'N/A'}R`;
 
     elements.push(`
-      <g class="scatter-point" style="cursor:pointer;" onclick="window.openDetail('${t.id}')">
+      <g class="scatter-point" style="cursor:pointer;" onclick="window.openDetail(${safeJs(t.id)})">
         <circle cx="${cx}" cy="${cy}" r="18" fill="transparent"><title>${safe(title)}</title></circle>
         <circle cx="${cx}" cy="${cy}" r="6" fill="${color}" opacity="0.85" stroke="#ffffff" stroke-width="1.5">
           <title>${safe(title)}</title>
@@ -2381,7 +2421,7 @@ function renderDayDetail(day) {
     ${insightCard("Day R", formatR(metrics(closed).totalR), `${closed.length} closed | ${openTrades(trades).length} open`)}
     <div class="day-trade"><strong>Plan</strong><p>${safe(plan?.bias || "No plan saved.")}</p><p>${safe(plan?.levels || "")}</p></div>
     <div class="day-trade"><strong>Review</strong><p>${safe(review?.focus || "No review saved.")}</p></div>
-    ${trades.map((trade) => `<div class="day-trade"><strong>${safe(trade.symbol)} ${trade.status === "open" ? "Open" : formatR(rValue(trade))}</strong><p>${safe(trade.setup)} | ${safe(trade.status === "open" ? trade.entryPlan || "In progress" : trade.emotion)}</p>${trade.tradingViewUrl ? `<a href="${safe(trade.tradingViewUrl)}" target="_blank" rel="noreferrer">Open Chart</a>` : ""}</div>`).join("")}
+    ${trades.map((trade) => `<div class="day-trade"><strong>${safe(trade.symbol)} ${trade.status === "open" ? "Open" : formatR(rValue(trade))}</strong><p>${safe(trade.setup)} | ${safe(trade.status === "open" ? trade.entryPlan || "In progress" : trade.emotion)}</p>${externalUrl(trade.tradingViewUrl) ? `<a href="${safe(externalUrl(trade.tradingViewUrl))}" target="_blank" rel="noreferrer">Open Chart</a>` : ""}</div>`).join("")}
   `;
 }
 
@@ -2459,12 +2499,12 @@ function renderPlaybook() {
     const checklistRules = parseSopChecklistRules(sop.checklist);
     
     return `
-    <div class="sop-card-container" id="container-${sop.id}">
+    <div class="sop-card-container" id="container-${safe(sop.id)}">
       <div class="sop-card-inner">
         <!-- Front Face -->
         <div class="sop-card-front">
           <button class="card-flip-btn" style="right: 48px;" data-edit-sop="${safe(sop.id)}" title="Edit SOP" aria-label="Edit SOP" type="button">⚙️</button>
-          <button class="card-flip-btn" onclick="flipCard('${sop.id}')" title="Flip to rules (Actions)" aria-label="Flip card" type="button">🔄</button>
+          <button class="card-flip-btn" onclick="flipCard(${safeJs(sop.id)})" title="Flip to rules (Actions)" aria-label="Flip card" type="button">🔄</button>
           <div style="display:flex; flex-direction:column; gap:6px;">
             <span class="tag info" style="width:fit-content; margin-bottom:4px;">Level ${level.level} ${level.name}</span>
             <strong style="font-size:18px; line-height:1.2;">${safe(sop.name)}</strong>
@@ -2493,7 +2533,7 @@ function renderPlaybook() {
         
         <!-- Back Face -->
         <div class="sop-card-back">
-          <button class="card-flip-btn" onclick="flipCard('${sop.id}')" title="Flip to stats" aria-label="Flip card" type="button">🔄</button>
+          <button class="card-flip-btn" onclick="flipCard(${safeJs(sop.id)})" title="Flip to stats" aria-label="Flip card" type="button">🔄</button>
           <div style="display:flex; flex-direction:column; gap:8px; overflow-y:auto; flex-grow:1; margin-bottom:12px; padding-right:4px;">
             <strong style="font-size:14px; color:var(--muted);">Checklist & Rules</strong>
             <ul style="margin: 0; padding-left: 18px; font-size:12px; line-height:1.4;">
@@ -2514,7 +2554,7 @@ function renderPlaybook() {
   }).join("");
 }
 
-function deleteSop(id) {
+async function deleteSop(id) {
   const sop = state.sops.find((s) => s.id === id);
   if (!sop) return;
   if (state.sops.length <= 1) {
@@ -2536,7 +2576,7 @@ function deleteSop(id) {
     state.activeSopId = state.sops[0]?.id || "";
     state.activeAccountId = accountsForSop(state.activeSopId)[0]?.id || "";
   }
-  saveState();
+  if (!await saveState()) return;
   renderAll();
   toast(`SOP "${sop.name}" deleted.`, "delete");
 }
@@ -2559,7 +2599,7 @@ function openSopModal(id = "") {
       <label>No-trade Rules<textarea name="noTradeRules" rows="3">${safe(sop.noTradeRules || defaultSopDetails.noTradeRules)}</textarea></label>
       <label>Checklist<textarea name="checklist" rows="4">${safe((sop.checklist || defaultSopDetails.checklist).join("\n"))}</textarea></label>
       <label>Weaknesses<textarea name="weaknesses" rows="4">${safe((sop.weaknesses || defaultSopDetails.weaknesses).join("\n"))}</textarea></label>
-      <button class="primary-button" type="button" onclick="window.saveSopFromModal(event)">Save SOP</button>s*</div>
+      <button class="primary-button" type="button" onclick="window.saveSopFromModal(event)">Save SOP</button></div>
   `);
   
 }
@@ -2598,7 +2638,7 @@ function openAccountModal(sopId = state.activeSopId, accountId = "") {
 }
 
 
-function deleteAccount(id) {
+async function deleteAccount(id) {
   const account = state.accounts.find((a) => a.id === id);
   if (!account) return;
   
@@ -2619,7 +2659,7 @@ function deleteAccount(id) {
         }
       }
     }
-    saveState();
+    if (!await saveState()) return;
     
     const activeModalTitle = document.getElementById("detailSheetTitle")?.textContent;
     if (activeModalTitle === "Manage Wallets") {
@@ -2644,8 +2684,8 @@ function openWalletManagerModal() {
                 <span style="font-size: 12px; color: var(--muted);">Balance: ${money(acc.currentBalance ?? acc.startingBalance ?? 1000)}</span>
               </div>
               <div style="display: flex; gap: 8px;">
-                <button class="ghost-button compact" type="button" onclick="window.openAccountModal('${safe(sop.id)}', '${safe(acc.id)}')">Edit</button>
-                <button class="ghost-button compact" type="button" style="color: var(--red);" onclick="window.deleteAccount('${safe(acc.id)}')">Delete</button>
+                <button class="ghost-button compact" type="button" onclick="window.openAccountModal(${safeJs(sop.id)}, ${safeJs(acc.id)})">Edit</button>
+                <button class="ghost-button compact" type="button" style="color: var(--red);" onclick="window.deleteAccount(${safeJs(acc.id)})">Delete</button>
               </div>
             </div>
           `).join('')}
@@ -2672,7 +2712,7 @@ window.saveSopFromModal = saveSopFromModal;
 window.saveAccountFromModal = saveAccountFromModal;
 window.closeTradeFromModal = closeTradeFromModal;
 
-function saveSopFromModal(event) {
+async function saveSopFromModal(event) {
   event.preventDefault();
   try {
     const container = document.getElementById("sopEditorForm");
@@ -2731,7 +2771,7 @@ function saveSopFromModal(event) {
     state.activeAccountId = accountsForSop(id)[0]?.id || state.activeAccountId;
     state = ensureSopState(state);
     window.state = state;
-    saveState();
+    if (!await saveState()) return;
     closeModal();
     renderAll();
     populateSopControls();
@@ -2743,7 +2783,7 @@ function saveSopFromModal(event) {
   }
 }
 
-function saveAccountFromModal(event) {
+async function saveAccountFromModal(event) {
   event.preventDefault();
   try {
     const container = document.getElementById("accountEditorForm");
@@ -2772,7 +2812,7 @@ function saveAccountFromModal(event) {
     else state.accounts.push(account);
     state.activeSopId = sopId;
     state.activeAccountId = account.id;
-    saveState();
+    if (!await saveState()) return;
     closeModal();
     renderAll();
     toast(`${account.name} account saved.`);
@@ -2821,7 +2861,7 @@ function applyLanguage() {
 
   const guardrailText = document.getElementById("guardrailText");
   if (guardrailText) {
-    const maxLoss = state?.preferences?.dailyMaxLossR || 2;
+    const maxLoss = Math.abs(state?.preferences?.dailyMaxLossR || 2);
     guardrailText.textContent = language === "zh" ? `每日最大亏损: -${maxLoss}R` : `Max daily loss: -${maxLoss}R`;
   }
   const guardrailMeta = document.getElementById("guardrailMeta");
@@ -3380,6 +3420,8 @@ function editTrade(id) {
 async function saveTradeFromForm(event) {
   event.preventDefault();
   const form = event.currentTarget;
+  if (form.dataset.saving === 'true') return;
+  const generation = localGeneration;
 
   // SaaS Validation: Check if user is logged in & has remaining trade quota
   const isNewTrade = !form.elements.id.value;
@@ -3390,9 +3432,11 @@ async function saveTradeFromForm(event) {
     }
   }
 
+  form.dataset.saving = 'true';
   try {
     const imagePromises = Array.from(form.imageFile.files).map(file => fileToDataUrl(file));
     const imagesData = (await Promise.all(imagePromises)).filter(Boolean);
+    if (generation !== localGeneration) return;
     const current = form.elements.id.value ? state.trades.find((trade) => trade.id === form.elements.id.value) : {};
     const hasResult = form.pnl.value.trim() !== "";
     const hasCloseTime = Boolean(form.closeTime?.value.trim());
@@ -3479,6 +3523,7 @@ async function saveTradeFromForm(event) {
       tradingViewUrl: form.tradingViewUrl.value.trim(),
       imageUrl: enteredUrl,
       images: finalImages,
+      imagesCloudStripped: finalImages.length ? false : Boolean(current.imagesCloudStripped),
       imageData: "",
       checklist: {
         hasPlan: form.hasPlan.checked,
@@ -3513,7 +3558,10 @@ async function saveTradeFromForm(event) {
     else state.trades.push(trade);
     state.activeSopId = trade.sopId;
     state.activeAccountId = trade.accountId;
-    saveState();
+    const saved = await saveState();
+    if (generation !== localGeneration) return;
+    if (!saved) { form.elements.id.value = trade.id; return; }
+    window.dispatchEvent(new Event("trade-saved"));
     resetTradeForm();
     renderAll();
     const progress = sopProgress(trade.sopId);
@@ -3540,15 +3588,17 @@ async function saveTradeFromForm(event) {
     }
   } catch (error) {
     toast(error.message, "error");
+  } finally {
+    delete form.dataset.saving;
   }
 }
 
-function deleteTrade(id) {
+async function deleteTrade(id) {
   const trade = state.trades.find((item) => item.id === id);
   if (!trade) return;
   if (!confirm(`Delete ${trade.symbol} ${formatR(rValue(trade))}?`)) return;
   state.trades = state.trades.filter((item) => item.id !== id);
-  saveState();
+  if (!await saveState()) return;
   closeSheet("detailSheet");
   closeSheet("tradeFormSheet");
   renderAll();
@@ -3563,7 +3613,7 @@ function openCloseTradeModal(id) {
   if (!trade) return;
   const currentNow = nowDatetimeLocal();
   openModal("Close trade", "Result", `
-    <div class="close-trade-form" id="closeTradeForm" data-close-id="${trade.id}">
+    <div class="close-trade-form" id="closeTradeForm" data-close-id="${safe(trade.id)}">
       <div class="insight-grid">
         ${insightCard("Symbol", trade.symbol, trade.direction)}
         ${insightCard("Setup", trade.setup, `Risk ${money(trade.risk)}`)}
@@ -3595,7 +3645,7 @@ function openCloseTradeModal(id) {
         </div>
       </label>
       <label>Upload Screenshot<input name="imageFile" type="file" accept="image/*" /></label>
-      <button class="primary-button" type="button" onclick="window.closeTradeFromModal(event)">Close Trade</button>s*</div>
+      <button class="primary-button" type="button" onclick="window.closeTradeFromModal(event)">Close Trade</button></div>
   `);
   
 }
@@ -3610,8 +3660,11 @@ function mediaBadges(trade) {
 
 async function closeTradeFromModal(event) {
   event.preventDefault();
+  const container = document.getElementById("closeTradeForm");
+  if (!container || container.dataset.saving === 'true') return;
+  const generation = localGeneration;
+  container.dataset.saving = 'true';
   try {
-    const container = document.getElementById("closeTradeForm");
     const trade = state.trades.find((item) => item.id === container.dataset.closeId);
     if (!trade) return;
     
@@ -3628,28 +3681,39 @@ async function closeTradeFromModal(event) {
       toast("Closing time cannot be earlier than opening time.", "error");
       return;
     }
+    const pnl = pnlInput !== "" ? Number(pnlInput) : Number(rInput) * Number(trade.risk);
+    if (!Number.isFinite(pnl) || (pnlInput === "" && !(Number(trade.risk) > 0))) {
+      toast("Enter a valid result and a positive risk amount.", "error");
+      return;
+    }
     
     const imageInput = container.querySelector('[name="imageFile"]');
     const imagePromises = imageInput && imageInput.files ? Array.from(imageInput.files).map(file => fileToDataUrl(file)) : [];
     const imagesData = (await Promise.all(imagePromises)).filter(Boolean);
+    if (generation !== localGeneration || !state.trades.includes(trade)) return;
     
     trade.status = "closed";
     trade.closeTime = closeTimeVal;
     trade.closedAt = closeTimeVal.split("T")[0];
-    if (rInput !== "") trade.rMultiple = Number(rInput);
-    trade.pnl = pnlInput !== "" ? Number(pnlInput) : (rInput !== "" ? Number(rInput) * Number(trade.risk || 0) : 0);
+    trade.pnl = pnl;
+    trade.rMultiple = "";
     
     const ruleValue = getValue("rule");
     trade.rule = ruleValue === "incomplete" ? "incomplete" : ruleValue === "true";
     trade.ruleStatus = ruleValue === "incomplete" ? "incomplete" : (ruleValue === "false" ? "violated" : "followed");
     trade.emotion = getValue("emotion");
     trade.exitNote = getValue("exitNote").trim();
-    if (imagesData.length) trade.images = imagesData;
+    if (imagesData.length) {
+      trade.images = imagesData;
+      trade.imageData = "";
+      trade.imagesCloudStripped = false;
+    }
     
     const isWin = trade.pnl > 0 || (trade.pnl === 0 && rValue(trade) > 0);
     const toastType = isWin ? "win" : "loss";
     
-    saveState();
+    if (!await saveState() || generation !== localGeneration) return;
+    window.dispatchEvent(new Event("trade-saved"));
     closeModal();
     renderAll();
     const progress = sopProgress(trade.sopId);
@@ -3657,13 +3721,15 @@ async function closeTradeFromModal(event) {
   } catch (error) {
     console.error("Error closing trade:", error);
     toast("Failed to close trade: " + error.message, "error");
+  } finally {
+    delete container.dataset.saving;
   }
 }
 
 function imagesFor(trade) {
   if (!trade) return [];
   const list = trade.images?.length ? trade.images : [trade.imageData || trade.imageUrl];
-  return list.filter((item) => typeof item === "string" && item.trim().length > 0);
+  return list.map(item => externalUrl(item, true)).filter(Boolean);
 }
 
 function openDetail(id) {
@@ -3675,8 +3741,8 @@ function openDetail(id) {
     imageHtml = `
       <div class="carousel-container" style="display:flex; overflow-x:auto; gap:12px; padding-bottom:8px;">
         ${imgs.map((src, i) => `
-          <button class="text-button" data-image="${trade.id}" data-index="${i}" style="flex-shrink:0; border:1px solid var(--hairline); border-radius:8px; overflow:hidden; position:relative; min-width:140px; min-height:100px; background:var(--hairline);">
-            <img src="${src}" alt="Screenshot ${i+1}" style="max-height:160px; object-fit:cover; display:block;" loading="lazy" />
+          <button class="text-button" data-image="${safe(trade.id)}" data-index="${i}" style="flex-shrink:0; border:1px solid var(--hairline); border-radius:8px; overflow:hidden; position:relative; min-width:140px; min-height:100px; background:var(--hairline);">
+            <img src="${safe(src)}" alt="Screenshot ${i+1}" style="max-height:160px; object-fit:cover; display:block;" loading="lazy" />
           </button>
         `).join("")}
       </div>
@@ -3684,14 +3750,14 @@ function openDetail(id) {
   } else if (imgs.length === 1) {
     imageHtml = `
       <div style="position:relative; border-radius:12px; overflow:hidden; min-height:160px;" class="skeleton-shimmer">
-        <button class="text-button" data-image="${trade.id}" data-index="0" style="width:100%; display:block;">
-          <img src="${imgs[0]}" alt="Chart screenshot" style="width:100%; display:block; border-radius:12px;" loading="lazy" onload="this.parentElement.parentElement.classList.remove('skeleton-shimmer')" />
+        <button class="text-button" data-image="${safe(trade.id)}" data-index="0" style="width:100%; display:block;">
+          <img src="${safe(imgs[0])}" alt="Chart screenshot" style="width:100%; display:block; border-radius:12px;" loading="lazy" onload="this.parentElement.parentElement.classList.remove('skeleton-shimmer')" />
         </button>
       </div>
     `;
   }
 
-  const sopVer = trade.sopSnapshot?.version || 1;
+  const sopVer = Number(trade.sopSnapshot?.version) || 1;
   const snapshotDrawer = trade.sopSnapshot?.checklist?.length
     ? `
       <details class="sop-snapshot-drawer" style="margin:12px 0; padding:10px 14px; border-radius:14px; background:rgba(0,113,227,0.06); border:1px solid rgba(0,113,227,0.2);">
@@ -3736,8 +3802,8 @@ function openDetail(id) {
       ${imageHtml}
       <div class="rich-text-content" style="margin:20px 0;">${parseMarkdown(safe(trade.status === "open" ? trade.entryPlan || "No entry plan." : trade.exitNote || trade.note || "No note."))}</div>
       <div class="row-actions">
-        ${trade.status === "open" ? `<button class="primary-button" data-close-trade="${trade.id}">Close Trade</button>` : ""}
-        ${trade.tradingViewUrl ? `<a class="primary-button" href="${safe(trade.tradingViewUrl)}" target="_blank" rel="noreferrer">Open Chart</a><button class="ghost-button" data-tv="${trade.id}">Embed TradingView</button>` : ""}
+        ${trade.status === "open" ? `<button class="primary-button" data-close-trade="${safe(trade.id)}">Close Trade</button>` : ""}
+        ${externalUrl(trade.tradingViewUrl) ? `<a class="primary-button" href="${safe(externalUrl(trade.tradingViewUrl))}" target="_blank" rel="noreferrer">Open Chart</a><button class="ghost-button" data-tv="${safe(trade.id)}">Embed TradingView</button>` : ""}
       </div>
       <div id="tvEmbed"></div>
     </div>
@@ -3757,10 +3823,11 @@ function openImage(id, index = 0) {
     modal.classList.add("active");
     return;
   }
-  openModal(`Screenshot ${index + 1} of ${imgs.length}`, "Image", `<img src="${imgs[index]}" alt="Chart screenshot" style="max-width:100%;" />`);
+  openModal(`Screenshot ${index + 1} of ${imgs.length}`, "Image", `<img src="${safe(imgs[index])}" alt="Chart screenshot" style="max-width:100%;" />`);
 }
 
 window.openImageLightbox = function(src) {
+  src = externalUrl(src, true);
   if (!src) return;
   const modal = document.getElementById("imageLightboxBackdrop");
   const img = document.getElementById("imageLightboxImg");
@@ -3787,8 +3854,8 @@ window.closeImageLightbox = function() {
 function embedTradingView(id) {
   const trade = state.trades.find((item) => item.id === id);
   const target = document.getElementById("tvEmbed");
-  if (!trade?.tradingViewUrl || !target) return;
-  target.innerHTML = `<iframe class="tv-frame" title="TradingView chart" src="${safe(trade.tradingViewUrl)}"></iframe><p class="muted">If the embed is blocked, use Open Chart.</p>`;
+  if (!externalUrl(trade?.tradingViewUrl) || !target) return;
+  target.innerHTML = `<iframe class="tv-frame" sandbox="allow-scripts allow-same-origin allow-popups" referrerpolicy="no-referrer" title="TradingView chart" src="${safe(externalUrl(trade.tradingViewUrl))}"></iframe><p class="muted">If the embed is blocked, use Open Chart.</p>`;
 }
 
 function openModal(title, kicker, html) {
@@ -3840,7 +3907,10 @@ function exportCsv() {
               : key === "imageCount"
                 ? imagesFor(trade).length
                 : trade[key];
-    return `"${String(value ?? "").replaceAll('"', '""')}"`;
+    const numericColumns = ['risk', 'pnl', 'r', 'accountStartingBalance', 'accountCurrentBalance', 'imageCount'];
+    let text = String(value ?? "");
+    if (!numericColumns.includes(key) && /^[\s]*[=+@-]/.test(text)) text = "'" + text;
+    return `"${text.replaceAll('"', '""')}"`;
   }).join(","));
   download("trd-journey.csv", [headers.join(","), ...rows].join("\n"), "text/csv;charset=utf-8");
 }
@@ -3865,9 +3935,11 @@ function download(filename, content, type) {
 window.importJson = importJson;
 async function importJson(file) {
   if (!file) return;
+  const generation = localGeneration;
   try {
     const text = await file.text();
-    const imported = JSON.parse(text);
+    if (generation !== localGeneration) return;
+    const imported = window.TRDBackup.validate(JSON.parse(text));
     const incoming = normalizeState(imported);
     if (!Array.isArray(incoming.trades)) throw new Error("Invalid backup file.");
     showImportPreview(incoming);
@@ -3877,50 +3949,46 @@ async function importJson(file) {
 }
 
 
-function clearAllData() {
-  if (!confirm("Are you sure you want to WIPE ALL DATA? This will delete all trades, SOPs, and accounts. You will start with a completely blank slate.")) return;
-  state = {
-    version: 1,
-    schemaVersion: 110,
-    preferences: structuredClone(defaultPreferences),
-    trades: [],
-    dailyPlans: {},
-    dailyReviews: {},
-    redNews: [],
-    sops: [{
-      id: "sop-default",
-      version: 1,
-      name: "My First Setup",
-      createdAt: todayISO(),
-      status: "active",
-      checklistLabels: structuredClone(defaultPreferences.checklistLabels),
-      market: "Forex",
-      timeframe: "All"
-    }],
-    accounts: [{
-      id: "acct-default",
-      sopId: "sop-default",
-      name: "Main Account",
-      type: "live",
-      balance: 10000,
-      currency: "USD"
-    }],
-    activeSopId: "sop-default",
-    activeAccountId: "acct-default",
-    backtests: [],
-    rewardMission: null,
-    points: 0,
-    level: 1,
-    longGame: state.longGame ? structuredClone(state.longGame) : {}
-  };
-  
-  if (state.longGame) {
-    state.longGame.events = [];
-    state.longGame.milestones = {};
+window.recoverLegacyBackup = async function() {
+  if (!localOwnerUid) { toast("Sign in before recovering a backup.", "error"); return; }
+  const generation = localGeneration;
+  try {
+    let raw = await idbGet(STORAGE_KEY);
+    if (!raw) {
+      const legacyText = localStorage.getItem(STORAGE_KEY);
+      if (legacyText) raw = JSON.parse(legacyText);
+    }
+    if (generation !== localGeneration) return;
+    if (!raw) { toast("No previous local backup was found in this browser.", "info"); return; }
+    const incoming = window.TRDBackup.validate(raw);
+    if (incoming.ownerUid && incoming.ownerUid !== localOwnerUid) {
+      toast("This backup belongs to another account. Sign in to its original account to recover it.", "error");
+      return;
+    }
+    openModal("Recover previous local backup", "Data recovery", `
+      <p>This browser has an older local journal. Older versions did not always record its owner.</p>
+      <p>Only recover it if these records belong to you. The original backup will stay on this device.</p>
+      <label><input type="checkbox" id="confirmLegacyOwner"> I confirm this is my journal.</label>
+      <button class="primary-button" id="previewLegacyBackup" disabled>Review backup</button>`);
+    const checkbox = document.getElementById('confirmLegacyOwner');
+    const button = document.getElementById('previewLegacyBackup');
+    checkbox.addEventListener('change', () => { button.disabled = !checkbox.checked; });
+    button.addEventListener('click', () => {
+      if (!checkbox.checked || generation !== localGeneration) return;
+      showImportPreview(normalizeState(incoming));
+    });
+  } catch (error) {
+    toast("The previous backup could not be read. It has not been deleted or changed.", "error");
   }
+};
+
+
+async function clearAllData() {
+  if (!confirm("Are you sure you want to WIPE ALL DATA? This will delete all trades, SOPs, and accounts. You will start with a completely blank slate.")) return;
+  state = normalizeState({ preferences: { ...structuredClone(defaultPreferences), setups: ["My First Setup"] } });
   window.state = state;
   
-  saveState();
+  if (!await saveState()) return;
   if (window.TRDCloudSync && window.TRDCloudSync.pushToCloudImmediate) {
     window.TRDCloudSync.pushToCloudImmediate();
   }
@@ -3929,11 +3997,11 @@ function clearAllData() {
   toast("All data cleared. Starting fresh.", "success");
 }
 
-function resetDemo() {
+async function resetDemo() {
   if (!confirm("Reset to demo data? This replaces current local data.")) return;
-  state = defaultState();
+  state = normalizeState({ ...defaultState(), trades: getDemoTrades() });
   window.state = state;
-  saveState();
+  if (!await saveState()) return;
   resetTradeForm();
   renderAll();
   toast("Demo data restored.");
@@ -3996,11 +4064,18 @@ function openSheet(id) {
   const sheet = document.getElementById(id);
   if (!sheet) return;
   playSound("switch");
+  if (!sheet.classList.contains("active")) sheet._returnFocus = document.activeElement;
   sheet.classList.remove("hidden");
   // Force reflow
   sheet.offsetWidth;
   sheet.style.zIndex = _currentSheetZIndex;
   sheet.classList.add("active");
+  sheet.setAttribute("aria-hidden", "false");
+  const dialog = sheet.querySelector('.sheet-card');
+  const title = dialog?.querySelector('h2, h3');
+  if (title) { if (!title.id) title.id = `${id}-title`; dialog.setAttribute('aria-labelledby', title.id); }
+
+  sheet.querySelector("input:not([type=hidden]), select, textarea, button")?.focus({ preventScroll: true });
   document.body.style.overflow = "hidden";
   document.body.classList.add("sheet-open");
 
@@ -4024,6 +4099,8 @@ function closeSheet(id) {
   if (!sheet || sheet.classList.contains("hidden")) return;
   playSound("switch");
   sheet.classList.remove("active");
+  sheet.setAttribute("aria-hidden", "true");
+  if (sheet._returnFocus?.isConnected && sheet._returnFocus.getClientRects().length) sheet._returnFocus.focus({ preventScroll: true });
   setTimeout(() => {
     if (!sheet.classList.contains("active")) {
       sheet.classList.add("hidden");
@@ -4031,7 +4108,7 @@ function closeSheet(id) {
   }, 400);
   
   const activeSheets = document.querySelectorAll(".sheet-backdrop.active");
-  if (activeSheets.length <= 1) {
+  if (activeSheets.length === 0) {
     document.body.style.overflow = "";
     document.body.classList.remove("sheet-open");
     // Show dock
@@ -4113,6 +4190,13 @@ function openModule(id, source = null) {
     });
   }
   
+  // The launcher visually covers these controls; keep keyboard navigation on it.
+  document.querySelectorAll('.view:not(#landing-gallery)').forEach(item => {
+    item.inert = id === 'landing-gallery' || !item.classList.contains('active');
+  });
+  const header = document.querySelector('.app-header');
+  if (header) header.inert = id === 'landing-gallery';
+
   const isSimulationActive = id === "review" && Boolean(document.getElementById("review-simulation")?.classList.contains("active"));
   const targetDockModule = id === "landing-gallery" ? activeModule : (isSimulationActive ? "simulation" : id);
   if (window.reactBitsDockEngine) {
@@ -4152,7 +4236,7 @@ function switchLanguage() {
   localStorage.setItem(LANGUAGE_KEY, language);
   document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
   applyLanguage();
-  renderAll();
+  renderAll({ preserveDrafts: true });
   if (window.TRDAuth && typeof window.TRDAuth.updateQuotaBadge === "function") {
     window.TRDAuth.updateQuotaBadge();
   }
@@ -4419,7 +4503,7 @@ document.getElementById("nextMonthBtn")?.addEventListener("click", () => {
   renderCycles();
 });
 
-document.body.addEventListener("click", (event) => {
+document.body.addEventListener("click", async (event) => {
   // Bubble Menu Item Handlers
   const bubbleBtnDetail = safeClosest(event.target, "#bubbleBtnDetail");
   const bubbleBtnEdit = safeClosest(event.target, "#bubbleBtnEdit");
@@ -4569,7 +4653,8 @@ document.body.addEventListener("click", (event) => {
     const trade = state.trades.find(t => t.id === tradeId);
     if (trade) {
       trade.reflection = text;
-      saveState();
+      const generation = localGeneration;
+      if (!await saveState() || generation !== localGeneration) return;
       toast("Self-reflection saved.", "success");
     }
     return;
@@ -4636,7 +4721,7 @@ document.querySelectorAll("[data-review-panel]").forEach((button) => {
 
 document.getElementById("btnRunMonteCarlo")?.addEventListener("click", () => {
   playSound("click");
-  executeAndRenderMonteCarlo();
+  executeAndRenderMonteCarlo({ force: true });
   toast("Monte Carlo 1,000 trials simulated!", "success");
 });
 document.getElementById("mcTradeCountSelect")?.addEventListener("change", executeAndRenderMonteCarlo);
@@ -4645,8 +4730,9 @@ document.querySelectorAll("#planForm [name='workflowDate'], #reviewForm [name='w
   input.addEventListener("change", (event) => setWorkflowDate(event.target.value));
 });
 
-document.getElementById("planForm")?.addEventListener("submit", (event) => {
+document.getElementById("planForm")?.addEventListener("submit", async (event) => {
   event.preventDefault();
+  const generation = localGeneration;
   const form = event.currentTarget;
   const day = form.workflowDate.value || selectedDay || todayISO();
   if (!state.dailyPlans) state.dailyPlans = {};
@@ -4657,7 +4743,7 @@ document.getElementById("planForm")?.addEventListener("submit", (event) => {
     maxLossR: Number(form.maxLossR.value),
     maxTrades: Number(form.maxTrades.value)
   };
-  saveState();
+  if (!await saveState() || generation !== localGeneration) return;
   
   const wasAlreadyRewarded = state.experience?.dailyXpLog?.[day]?.plan === true;
   awardXpForQuest(day, "plan");
@@ -4668,8 +4754,9 @@ document.getElementById("planForm")?.addEventListener("submit", (event) => {
   closeSheet("planSheet");
 });
 
-document.getElementById("reviewForm")?.addEventListener("submit", (event) => {
+document.getElementById("reviewForm")?.addEventListener("submit", async (event) => {
   event.preventDefault();
+  const generation = localGeneration;
   const form = event.currentTarget;
   const day = form.workflowDate.value || selectedDay || todayISO();
   selectedDay = day;
@@ -4679,7 +4766,7 @@ document.getElementById("reviewForm")?.addEventListener("submit", (event) => {
     remove: form.remove.value.trim(),
     focus: form.focus.value.trim()
   };
-  saveState();
+  if (!await saveState() || generation !== localGeneration) return;
   
   const wasReviewRewarded = state.experience?.dailyXpLog?.[day]?.review === true;
   awardXpForQuest(day, "review");
@@ -4704,8 +4791,9 @@ document.getElementById("reviewForm")?.addEventListener("submit", (event) => {
   closeSheet("reviewSheet");
 });
 
-document.getElementById("lgCustomAlertsForm")?.addEventListener("submit", (event) => {
+document.getElementById("lgCustomAlertsForm")?.addEventListener("submit", async (event) => {
   event.preventDefault();
+  const generation = localGeneration;
   const form = event.currentTarget;
   if (!state.longGame.customAlertConfig) state.longGame.customAlertConfig = {};
   
@@ -4713,12 +4801,13 @@ document.getElementById("lgCustomAlertsForm")?.addEventListener("submit", (event
   state.longGame.customAlertConfig.sopChangeWindowDays = parseInt(form.sopChangeWindowDays.value, 10) || 7;
   state.longGame.customAlertConfig.shockBreakRatioDelta = parseFloat(form.shockBreakRatioDelta.value) || 0.2;
   
-  saveState();
+  if (!await saveState() || generation !== localGeneration) return;
   toast("Long Game custom alerts saved.");
 });
 
-document.getElementById("settingsForm")?.addEventListener("submit", (event) => {
+document.getElementById("settingsForm")?.addEventListener("submit", async (event) => {
   event.preventDefault();
+  const generation = localGeneration;
   const form = event.currentTarget;
   state.preferences = {
     ...state.preferences,
@@ -4743,7 +4832,7 @@ document.getElementById("settingsForm")?.addEventListener("submit", (event) => {
   if (!state.preferences.setups.length) state.preferences.setups = [...defaultPreferences.setups];
   state = ensureSopState(state);
   window.state = state;
-  saveState();
+  if (!await saveState() || generation !== localGeneration) return;
   resetTradeForm();
   renderAll();
   toast("Preferences saved.");
@@ -4820,7 +4909,7 @@ function openInsightDetail(key) {
   } else if (key === "streak") {
     kicker.textContent = "Daily Performance";
     title.textContent = "Daily R over time";
-    const dayMap = {};
+    const dayMap = Object.create(null);
     closed.forEach((t) => { dayMap[t.date] = (dayMap[t.date] || 0) + rValue(t); });
     const sortedDays = Object.keys(dayMap).sort();
     seriesData = sortedDays.map((d) => ({ value: dayMap[d], label: d, detail: `Day total: ${formatR(dayMap[d])}` }));
@@ -5076,7 +5165,7 @@ function initCalendarHover() {
       dayTrades.forEach(t => {
         const val = t.status === "open" ? "Open" : (t.pnl ? `$${t.pnl}` : formatR(rValue(t)));
         html += `<div style="font-size:11px;"><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${t.pnl >= 0 || rValue(t) >= 0 ? 'var(--green)' : 'var(--red)'}; margin-right:4px;"></span>`;
-        html += `<strong>${safe(t.symbol)}</strong> (${safe(t.setup)}) ${t.direction}: <strong>${val}</strong></div>`;
+        html += `<strong>${safe(t.symbol)}</strong> (${safe(t.setup)}) ${safe(t.direction)}: <strong>${val}</strong></div>`;
       });
       html += `</div>`;
     }
@@ -5139,16 +5228,7 @@ function updateStorageEstimate() {
 }
 
 function updateSyncStatus() {
-  const dot = document.getElementById("syncStatusDot");
-  if (!dot) return;
-  
-  if (navigator.onLine) {
-    dot.className = "status-dot online";
-    dot.title = "Online (Local Storage Sync ready)";
-  } else {
-    dot.className = "status-dot offline";
-    dot.title = "Offline (Local Database Sandbox mode active)";
-  }
+  window.TRDCloudSync?.refreshStatus();
 }
 
 function showUpdateBanner(worker) {
@@ -5167,6 +5247,7 @@ function showUpdateBanner(worker) {
     
     banner.querySelector("button").addEventListener("click", () => {
       playSound("click");
+      updateReloadRequested = true;
       worker.postMessage({ action: "skipWaiting" });
     });
   }
@@ -5356,11 +5437,14 @@ function renderMonteCarloChart(results) {
   }
 }
 
-function executeAndRenderMonteCarlo() {
+let updateReloadRequested = false;
+let monteCarloCache = null;
+function executeAndRenderMonteCarlo({ force = false } = {}) {
   const select = document.getElementById("mcTradeCountSelect");
   const count = select ? parseInt(select.value, 10) || 50 : 50;
-  const results = runMonteCarloSimulation(count, 1000);
-  renderMonteCarloChart(results);
+  const key = JSON.stringify([count, closedTrades().map(t => rValue(t))]);
+  if (force || !monteCarloCache || monteCarloCache.key !== key) monteCarloCache = { key, results: runMonteCarloSimulation(count, 1000) };
+  renderMonteCarloChart(monteCarloCache.results);
 }
 window.executeAndRenderMonteCarlo = executeAndRenderMonteCarlo;
 
@@ -5740,7 +5824,7 @@ function renderDisciplineHeatmap() {
   startDate.setDate(today.getDate() - dayOfWeek - 14 * 7); // Sunday 14 weeks ago
   
   // Build a map of date string to trade compliance
-  const tradeMap = {};
+  const tradeMap = Object.create(null);
   closedTrades().forEach(t => {
     if (!t.date) return;
     const dStr = String(t.date).trim().split("T")[0].split(" ")[0]; // YYYY-MM-DD
@@ -5823,6 +5907,8 @@ function drawMiniSparklineMarkup(closed) {
 
 
 function showImportPreview(incoming) {
+  const generation = localGeneration;
+  let busy = false;
   const currentClosed = closedTrades();
   let currentTotal = 0;
   const currentSeries = [{ value: 0 }];
@@ -5900,87 +5986,31 @@ function showImportPreview(incoming) {
     renderDualLineChart("importCompareChart", currentSeries, mergedSeries);
   }, 100);
   
-  document.getElementById("btnConfirmMerge")?.addEventListener("click", async () => {
+  async function applyImport(overwrite) {
+    if (busy || generation !== localGeneration) return;
+    busy = true;
     window.isImporting = true;
-    // 0. Preferences
-    if (incoming.preferences && typeof incoming.preferences === "object") {
-      const mergedSetups = [...new Set([
-        ...(state.preferences?.setups || []),
-        ...(incoming.preferences.setups || [])
-      ])];
-      state.preferences = {
-        ...state.preferences,
-        ...incoming.preferences,
-        setups: mergedSetups.length > 0 ? mergedSetups : state.preferences?.setups,
-        checklistLabels: {
-          ...(state.preferences?.checklistLabels || {}),
-          ...(incoming.preferences.checklistLabels || {})
-        }
-      };
+    try {
+      const imported = overwrite ? { ...incoming, _sync: state._sync, ownerUid: localOwnerUid }
+        : window.TRDBackup.merge(state, incoming);
+      state = normalizeState(imported);
+      window.state = state;
+      if (!await saveState() || generation !== localGeneration) return;
+      closeModal();
+      resetTradeForm();
+      renderAll();
+      toast(overwrite ? "Database restored from backup." : "Data merged successfully.", "success");
+    } catch (error) {
+      toast("Backup was not fully saved: " + error.message, "error");
+    } finally {
+      busy = false;
+      window.isImporting = false;
+      if (generation === localGeneration) await window.TRDCloudSync?.resumeAfterImport();
     }
+  }
+  document.getElementById("btnConfirmMerge")?.addEventListener("click", () => applyImport(false));
+  document.getElementById("btnConfirmOverwrite")?.addEventListener("click", () => applyImport(true));
 
-    // 1. Trades
-    state.trades = mergedTrades;
-
-    // 2. SOPs
-    (incoming.sops || []).forEach(inSop => {
-      const idx = state.sops.findIndex(s => s.id === inSop.id);
-      if (idx >= 0) state.sops[idx] = { ...state.sops[idx], ...inSop };
-      else state.sops.push(inSop);
-    });
-
-    // 3. Accounts
-    (incoming.accounts || []).forEach(inAcct => {
-      const idx = state.accounts.findIndex(a => a.id === inAcct.id);
-      if (idx >= 0) state.accounts[idx] = { ...state.accounts[idx], ...inAcct };
-      else state.accounts.push(inAcct);
-    });
-
-    // 4. Daily Plans & Reviews
-    if (incoming.dailyPlans) {
-      for (const [day, plan] of Object.entries(incoming.dailyPlans)) {
-        state.dailyPlans[day] = { ...(state.dailyPlans[day] || {}), ...plan };
-      }
-    }
-    if (incoming.dailyReviews) {
-      for (const [day, review] of Object.entries(incoming.dailyReviews)) {
-        state.dailyReviews[day] = { ...(state.dailyReviews[day] || {}), ...review };
-      }
-    }
-
-    // 6. Active Pointers
-    if (incoming.activeSopId && incoming.activeSopId !== "sop-default") {
-       state.activeSopId = incoming.activeSopId;
-    }
-    if (incoming.activeAccountId && incoming.activeAccountId !== "acc-default") {
-       state.activeAccountId = incoming.activeAccountId;
-    }
-
-    state = ensureSopState(state);
-    window.state = state;
-
-    await Promise.race([saveState(), new Promise(r => setTimeout(r, 2000))]);
-    closeModal();
-    playSound("success");
-    renderAll();
-    toast("Data merged successfully.", "success");
-    setTimeout(() => { window.isImporting = false; }, 2000);
-  });
-  
-  document.getElementById("btnConfirmOverwrite")?.addEventListener("click", async () => {
-    window.isImporting = true;
-    // confirm removed to prevent silent failures
-    state = ensureSopState(normalizeState(incoming));
-    window.state = state;
-    await saveState();
-    closeModal();
-    resetTradeForm();
-    if (window.appleAudioEngine) window.appleAudioEngine.play("checklist");
-    else playSound("success");
-    renderAll();
-    toast("Database fully restored from backup.", "success");
-    setTimeout(() => { window.isImporting = false; }, 2000);
-  });
 }
 
 function renderDualLineChart(id, currentSeries, projectedSeries) {
@@ -6061,6 +6091,26 @@ function initCollapsiblePanels() {
 }
 
 function initLayoutListeners() {
+  document.querySelectorAll('.form-group .floating-label').forEach((label, index) => {
+    const control = label.parentElement.querySelector('input, select, textarea');
+    if (!control) return;
+    if (!control.id) control.id = `field-${index}`;
+    label.htmlFor = control.id;
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key !== 'Tab' || document.querySelector('#authModalBackdrop.active, #upgradeModalBackdrop.active')) return;
+    const sheets = Array.from(document.querySelectorAll('.sheet-backdrop.active')).sort((a,b) => Number(b.style.zIndex) - Number(a.style.zIndex));
+    const sheet = sheets[0];
+    if (!sheet) return;
+    const controls = Array.from(sheet.querySelectorAll('button, input, select, textarea, a[href], [tabindex]'))
+      .filter(el => !el.disabled && el.tabIndex >= 0 && el.getClientRects().length);
+    const first = controls[0], last = controls[controls.length - 1];
+    if (!first) { event.preventDefault(); return; }
+    if (!sheet.contains(document.activeElement) || (event.shiftKey && document.activeElement === first) || (!event.shiftKey && document.activeElement === last)) {
+      event.preventDefault(); (event.shiftKey ? last : first).focus();
+    }
+  });
+
   console.log("initLayoutListeners: Initializing click and layout listeners...");
   
   // Carousel range sliders dynamic text updates
@@ -6138,25 +6188,12 @@ function initLayoutListeners() {
 
 async function initApp() {
   try {
-    const APP_VERSION = "v200-cache-purge";
-    try {
-      if (localStorage.getItem("trd_app_version") !== APP_VERSION) {
-        localStorage.setItem("trd_app_version", APP_VERSION);
-        if ("caches" in window) {
-          caches.keys().then(keys => {
-            keys.forEach(k => {
-              if (!k.includes("v92")) caches.delete(k);
-            });
-          });
-        }
-      }
-    } catch (e) {}
-
     console.log("initApp: Starting application initialization...");
     state = await loadState();
     window.state = state;
     console.log("initApp: State loaded successfully");
-    await saveState(); // Ensure initialized defaults or migrated data are saved
+    observedState = structuredClone(state);
+    await saveState({ skipCloud: true }); // Persist this guest partition before auth selects a user.
     renderAll();
     console.log("initApp: Main rendering complete");
     resetTradeForm();
@@ -6178,7 +6215,7 @@ async function initApp() {
     
     initCardSpotlightHover();
     initCalendarHover();
-    initMacDock();
+    // dock.js owns the current Dock; the obsolete .ios-dock initializer is unused.
     initRewardListeners();
     initLayoutListeners();
     console.log("initApp: Listeners and modules initialized successfully");
@@ -6201,14 +6238,6 @@ async function initApp() {
     // Register service worker with version update banner
     
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.getRegistrations().then(function(registrations) {
-    for(let registration of registrations) {
-      registration.unregister();
-    }
-  });
-}
-
-if (false && "serviceWorker" in navigator) {
       navigator.serviceWorker.register("sw.js").then((reg) => {
         reg.update();
         if (reg.waiting) {
@@ -6225,7 +6254,7 @@ if (false && "serviceWorker" in navigator) {
       }).catch((err) => console.log("SW failed", err));
       
       navigator.serviceWorker.addEventListener("controllerchange", () => {
-        window.location.reload();
+        if (updateReloadRequested) window.location.reload();
       });
     }
   } catch (err) {
@@ -6344,7 +6373,7 @@ function renderReflections() {
   const emotionCounts = emotions.reduce((acc, emo) => {
     acc[emo] = (acc[emo] || 0) + 1;
     return acc;
-  }, {});
+  }, Object.create(null));
   const topEmotion = Object.keys(emotionCounts).sort((a, b) => emotionCounts[b] - emotionCounts[a])[0] || "None";
 
   summaryTarget.innerHTML = `
@@ -6361,7 +6390,7 @@ function renderReflections() {
     const pnlClass = t.pnl < 0 ? "bad" : t.pnl > 0 ? "good" : "muted";
     
     return `
-      <div class="shame-trade-card" data-trade-id="${t.id}">
+      <div class="shame-trade-card" data-trade-id="${safe(t.id)}">
         <div style="display: flex; justify-content: space-between; align-items: start; flex-wrap: wrap; gap: 8px;">
           <div>
             <strong style="font-size: 16px; color: var(--ink);">${safe(t.date)} · ${safe(t.symbol)} ${safe(t.direction)}</strong>
@@ -6385,8 +6414,8 @@ function renderReflections() {
         
         <div class="reflection-editor" style="display: flex; flex-direction: column; gap: 6px; margin-top: 10px;">
           <strong style="font-size: 13px; color: var(--ink);">🧠 自我反省与改进计划 (Self-Reflection):</strong>
-          <textarea placeholder="Write down why you broke the rule, how it felt, and what action you will take to prevent this next time..." rows="3" style="width: 100%; font-size: 13px; line-height: 1.5; padding: 10px; border-radius: 10px; border: 1px solid var(--hairline); background: white; resize: vertical; box-sizing: border-box;">${safe(t.reflection || "")}</textarea>
-          <button class="primary-button compact save-reflection-btn" data-trade-id="${t.id}" style="align-self: flex-end; width: auto; min-width: 120px; padding: 6px 14px; font-size: 12px; border-radius: 999px; background: var(--red); border: none; color: white; cursor: pointer; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 4px;">
+          <textarea id="reflection-${safe(t.id)}" aria-label="Self-reflection" placeholder="Write down why you broke the rule, how it felt, and what action you will take to prevent this next time..." rows="3" style="width: 100%; font-size: 13px; line-height: 1.5; padding: 10px; border-radius: 10px; border: 1px solid var(--hairline); background: white; resize: vertical; box-sizing: border-box;">${safe(t.reflection || "")}</textarea>
+          <button class="primary-button compact save-reflection-btn" data-trade-id="${safe(t.id)}" style="align-self: flex-end; width: auto; min-width: 120px; padding: 6px 14px; font-size: 12px; border-radius: 999px; background: var(--red); border: none; color: white; cursor: pointer; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 4px;">
             <span>💾 Save Reflection</span>
           </button>
         </div>
@@ -6542,4 +6571,4 @@ window.addEventListener("paste", async (e) => {
   }
 });
 
-initApp();
+window.TRDAppReady = initApp();

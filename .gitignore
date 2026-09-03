@@ -4,6 +4,7 @@ Thumbs.db
 .env
 .env.*
 node_modules/
+dist/
 .vercel/
 patch*.js
 test*.js

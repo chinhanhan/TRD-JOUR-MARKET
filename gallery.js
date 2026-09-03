@@ -72,6 +72,8 @@ class LaserFlowEngine {
 
   animate() {
     requestAnimationFrame(() => this.animate());
+    if (document.hidden || !this.landing?.getClientRects().length ||
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
     // Lerp mouse coordinates for fluid liquid motion
     if (this.isHovering) {
@@ -353,23 +355,31 @@ class VisionOSBentoLauncher {
     
     const islandGuardrail = document.getElementById('islandGuardrail');
     if (islandGuardrail && window.state.preferences) {
-      islandGuardrail.textContent = `Max Loss: -${window.state.preferences.dailyMaxLossR || 2}R`;
+      islandGuardrail.textContent = `Max Loss: -${Math.abs(window.state.preferences.dailyMaxLossR || 2)}R`;
     }
     
     const islandStreak = document.getElementById('islandStreak');
     if (islandStreak) {
-      const streakCount = window.state.stats ? window.state.stats.disciplineStreak : 5;
-      islandStreak.textContent = `${streakCount || 5} Trades`;
+      const streakCount = window.getDisciplineStreak?.() || 0;
+      islandStreak.textContent = `${streakCount} Trades`;
     }
   }
 
   updateBentoStats() {
     if (!window.state || !window.state.trades) return;
-    const trades = window.state.trades;
+    const trades = (window.closedTrades?.() || []).slice().sort((a, b) => String(a.closeTime || a.closedAt || a.date || '').localeCompare(String(b.closeTime || b.closedAt || b.date || '')));
+    const date = new Date();
+    const day = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+    const dateEl = document.getElementById('bentoDate');
+    if (dateEl) dateEl.textContent = date.toLocaleDateString('en', {month:'short',day:'numeric'});
+    const planEl = document.getElementById('bentoPlanStatus');
+    if (planEl) planEl.textContent = window.state.dailyPlans?.[day] ? 'Plan Ready ✓' : 'Plan pending';
+    const streakEl = document.getElementById('bentoStreak');
+    if (streakEl) streakEl.textContent = `🔥 ${window.getDisciplineStreak?.() || 0} Streak`;
     let totalR = 0;
     const points = [0];
     trades.forEach(t => {
-      totalR += (t.resultR || 0);
+      totalR += window.rValue?.(t) || 0;
       points.push(totalR);
     });
     
@@ -381,6 +391,7 @@ class VisionOSBentoLauncher {
 
     // Dynamic SVG Sparkline generator from real trade history
     const sparklinePath = document.getElementById('bentoSparklinePath');
+    if (sparklinePath && points.length <= 1) sparklinePath.setAttribute('d', 'M 0,15 L 200,15');
     if (sparklinePath && points.length > 1) {
       const minR = Math.min(...points, 0);
       const maxR = Math.max(...points, 1);
@@ -483,6 +494,7 @@ window.triggerBentoAction = function(actionStr, moduleName) {
 
 // Global initializer - Guaranteed 100% execution for all engines
 window.initCSS3DCarousel = function() {
+  if (window.css3dCarousel) return;
   try {
     window.laserFlowEngine = new LaserFlowEngine();
   } catch (err) {

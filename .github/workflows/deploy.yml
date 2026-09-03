@@ -27,10 +27,32 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run regression tests
+        run: npm test
+
+      - name: Setup Java for Firestore Emulator
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Verify Firestore rules
+        run: |
+          npm ci --prefix functions
+          npx firebase-tools emulators:exec --only firestore --project demo-trd-audit 'node --test tests/firestore-rules.test.cjs'
+
+      - name: Prepare public files
+        run: npm run prepare:hosting
+
       - name: Upload Artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
+          path: 'dist'
 
       - name: Deploy to GitHub Pages
         id: deployment

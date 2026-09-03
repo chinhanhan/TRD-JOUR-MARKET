@@ -10,53 +10,21 @@ class TRDDataEngine {
     window.exportJSONBackup = () => this.exportJSON();
     window.importJSONBackup = (fileInput) => this.importJSON(fileInput);
     window.exportTradesCSV = () => this.exportCSV();
-    window.generateMonthlyReport = () => this.generateReport();
+    window.generateMonthlyReport = (options) => options ? this.generateReport(options) : this.openReportOptions();
   }
 
   getTrades() {
-    if (window.state && Array.isArray(window.state.trades) && window.state.trades.length > 0) {
-      return window.state.trades;
-    }
-    try {
-      const STORAGE_KEY = "trd-journey-os-v1";
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed && Array.isArray(parsed.trades)) return parsed.trades;
-      }
-    } catch (e) {}
-    try {
-      const stored = localStorage.getItem("trd_trades_v1");
-      return stored ? JSON.parse(stored) : [];
-    } catch (e) {
-      return [];
-    }
+    // An empty active account is authoritative. Never revive legacy user data.
+    return Array.isArray(window.state?.trades) ? window.state.trades : [];
   }
 
   async exportJSON() {
     try {
-      // Read directly from IndexedDB — the single source of truth used by app.js
-      const STORAGE_KEY = "trd-journey-os-v1";
-      let stateData = null;
-      try {
-        if (window.idbGet) {
-          stateData = await window.idbGet(STORAGE_KEY);
-        }
-      } catch (e) {}
-
-      // Fallback: use live window.state if IDB not available yet
-      if (!stateData && window.state) {
-        stateData = JSON.parse(JSON.stringify(window.state));
-      }
-
-      // Final fallback: localStorage (legacy support)
-      if (!stateData) {
-        const lsRaw = localStorage.getItem(STORAGE_KEY);
-        if (lsRaw) stateData = JSON.parse(lsRaw);
-      }
+      // Back up the active in-memory partition, including unsynced changes.
+      const stateData = window.state ? JSON.parse(JSON.stringify(window.state)) : null;
 
       if (!stateData) {
-        alert("No data found to back up.");
+        window.toast?.("No data found to back up.");
         return;
       }
 
@@ -75,7 +43,7 @@ class TRDDataEngine {
 
       if (window.appleAudioEngine) window.appleAudioEngine.play('checklist');
     } catch (err) {
-      alert("Export failed: " + err.message);
+      window.toast?.("Export failed: " + err.message);
     }
   }
 
@@ -85,32 +53,30 @@ class TRDDataEngine {
     if (window.importJson) {
       window.importJson(file);
     } else {
-      alert("System not fully initialized yet.");
+      window.toast?.("System not fully initialized yet.");
     }
     fileInput.value = "";
   }
 
   exportCSV() {
-    if (window.TRDAuth && window.TRDAuth.getSubscription && window.TRDAuth.getSubscription().plan !== 'pro') {
-      window.TRDAuth.openUpgradeModal();
-      if (window.toast) window.toast("⭐ CSV Trade Data Export is a PRO feature. Upgrade to export.", "warning");
-      return;
-    }
-
     const trades = this.getTrades();
     if (!trades.length) {
-      alert("No trade records found to export.");
+      window.toast?.("No trade records found to export.");
       return;
     }
 
-    const esc = (val) => `"${String(val ?? "").replace(/"/g, '""')}"`;
+    const esc = (val) => {
+      let text = String(val ?? "");
+      if (/^[=+@\-\t\r]/.test(text)) text = "'" + text;
+      return `"${text.replace(/"/g, '""')}"`;
+    };
 
     const headers = ["Open Time", "Close Time", "Duration", "Date", "Symbol", "Direction", "Setup", "Risk ($)", "R-Multiple", "Net PnL ($)", "Grade", "Rule Followed", "Emotion", "MAE (R)", "MFE (R)", "SOP Version", "Entry Plan", "Exit Note"];
     const rows = trades.map(t => {
       const openDisp = t.openTime ? t.openTime.replace("T", " ") : t.date || "";
       const closeDisp = t.closeTime ? t.closeTime.replace("T", " ") : (t.closedAt || "");
       const duration = (window.formatHoldDuration ? window.formatHoldDuration(t.openTime || t.date, t.closeTime || t.closedAt) : "");
-      const rVal = t.pnl && t.risk && Number(t.risk) > 0 ? (Number(t.pnl) / Number(t.risk)).toFixed(2) : 0;
+      const rVal = Number(t.risk) > 0 ? window.rValue(t).toFixed(2) : "";
       const mae = t.maeR !== undefined && t.maeR !== null ? t.maeR : "";
       const mfe = t.mfeR !== undefined && t.mfeR !== null ? t.mfeR : "";
       const sopVer = t.sopSnapshot?.version || 1;
@@ -144,26 +110,55 @@ class TRDDataEngine {
     if (window.appleAudioEngine) window.appleAudioEngine.play('checklist');
   }
 
-  generateReport() {
+  openReportOptions() {
+    if (window.TRDAuth?.getSubscription().plan !== 'pro') { window.TRDAuth?.openUpgradeModal(); return; }
+    const now = new Date();
+    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const options = (window.state?.accounts || []).map(account =>
+      `<option value="${window.safe(account.id)}" ${account.id === window.state.activeAccountId ? 'selected' : ''}>${window.safe(account.name)}</option>`).join('');
+    window.openModal('Monthly performance report', 'Export', `
+      <label>Month<input id="reportMonth" type="month" value="${month}" required></label>
+      <label>Account<select id="reportAccount"><option value="">All accounts</option>${options}</select></label>
+      <p class="muted">Includes closed trades by their close date. Open trades are excluded.</p>
+      <button id="printMonthlyReport" type="button" class="primary-button">Open report</button>`);
+    document.getElementById('printMonthlyReport').addEventListener('click', () => this.generateReport({
+      month: document.getElementById('reportMonth').value,
+      accountId: document.getElementById('reportAccount').value
+    }));
+  }
+
+  generateReport({ month, accountId } = {}) {
     if (window.TRDAuth && window.TRDAuth.getSubscription && window.TRDAuth.getSubscription().plan !== 'pro') {
       window.TRDAuth.openUpgradeModal();
       if (window.toast) window.toast("⭐ Monthly Executive PDF Report is a PRO feature. Upgrade to export.", "warning");
       return;
     }
 
-    const trades = this.getTrades();
-    const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
-
+    const now = new Date();
+    month = month || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+      window.toast?.("Choose a valid report month (YYYY-MM).", "error");
+      return;
+    }
+    accountId = accountId === undefined ? window.state?.activeAccountId : accountId;
+    const trades = this.getTrades().filter(t => t.status !== "open" &&
+      String(t.closeTime || t.closedAt || t.date || "").slice(0, 7) === month &&
+      (!accountId || t.accountId === accountId));
+    const dateStr = new Date(`${month}-01T12:00:00`).toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+    const escape = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+    const account = (window.state?.accounts || []).find(a => a.id === accountId);
+    const scope = escape(account?.name || (accountId ? "Selected account" : "All accounts"));
     const totalTrades = trades.length;
-    const wins = trades.filter(t => t.pnl > 0).length;
+    const wins = trades.filter(t => Number(t.pnl) > 0).length;
     const winRate = totalTrades ? Math.round((wins / totalTrades) * 100) : 0;
-    const totalR = trades.reduce((acc, t) => acc + (t.pnl && t.risk ? t.pnl / t.risk : 0), 0);
-    const followedRulesCount = trades.filter(t => t.rule === true || t.ruleFollowed === true || (!t.ruleStatus || t.ruleStatus === "followed")).length;
-    const complianceRate = totalTrades ? Math.round((followedRulesCount / totalTrades) * 100) : 100;
+    const totalR = trades.reduce((acc, t) => acc + window.rValue(t), 0);
+    const invalidRiskCount = trades.filter(t => !(Number(t.risk) > 0) || !Number.isFinite(Number(t.risk))).length;
+    const followedRulesCount = trades.filter(t => window.getTradeRuleStatus(t) === "followed").length;
+    const complianceRate = totalTrades ? Math.round((followedRulesCount / totalTrades) * 100) : 0;
 
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
-      alert("⚠️ Pop-up was blocked by your browser. Please allow pop-ups for this site to view and print your Monthly Report.");
+      window.toast?.("⚠️ Pop-up was blocked by your browser. Please allow pop-ups for this site to view and print your Monthly Report.");
       return;
     }
 
@@ -186,6 +181,7 @@ class TRDDataEngine {
           th { background: #f1f5f9; font-weight: 700; }
           .win { color: #10b981; font-weight: 700; }
           .loss { color: #ef4444; font-weight: 700; }
+          @media print { button { display: none; } thead { display: table-header-group; } tr { break-inside: avoid; } }
         </style>
       </head>
       <body>
@@ -193,6 +189,7 @@ class TRDDataEngine {
           <div>
             <h1 class="title">TRD Journey Trading Operating System</h1>
             <p class="meta">Monthly Executive Performance Report · ${dateStr}</p>
+            <p class="meta">${scope} · Closed trades by close date. ${invalidRiskCount} trade(s) with missing risk excluded from R totals.</p>
           </div>
           <button onclick="window.print()" style="padding:8px 16px; background:#0071e3; color:#fff; border:none; border-radius:8px; cursor:pointer; font-weight:700;">Print / Save PDF</button>
         </div>
@@ -232,16 +229,16 @@ class TRDDataEngine {
           </thead>
           <tbody>
             ${trades.map(t => {
-              const r = t.pnl && t.risk ? (t.pnl / t.risk).toFixed(2) : '0.00';
+              const r = window.rValue(t).toFixed(2);
               return `
                 <tr>
-                  <td>${t.date || ''}</td>
-                  <td><strong>${t.symbol || ''}</strong></td>
-                  <td>${t.direction || 'Long'}</td>
-                  <td>${t.setup || ''}</td>
-                  <td>$${t.risk || 0}</td>
-                  <td class="${r >= 0 ? 'win' : 'loss'}">${r >= 0 ? '+' : ''}${r}R</td>
-                  <td class="${t.pnl >= 0 ? 'win' : 'loss'}">${t.pnl >= 0 ? '+' : ''}$${t.pnl || 0}</td>
+                  <td>${escape(t.date || '')}</td>
+                  <td><strong>${escape(t.symbol || '')}</strong></td>
+                  <td>${escape(t.direction || 'Long')}</td>
+                  <td>${escape(t.setup || '')}</td>
+                  <td>$${escape(t.risk || 0)}</td>
+                  <td class="${r >= 0 ? 'win' : 'loss'}">${Number(t.risk) > 0 ? `${r >= 0 ? '+' : ''}${r}R` : 'N/A'}</td>
+                  <td class="${t.pnl >= 0 ? 'win' : 'loss'}">${t.pnl >= 0 ? '+' : ''}$${escape(t.pnl || 0)}</td>
                   <td>${t.ruleStatus === "incomplete" || t.rule === "incomplete" ? '🟠 Incomplete' : (t.ruleStatus === "violated" || t.rule === false ? 'No ✕' : 'Yes ✓')}</td>
                 </tr>
               `;

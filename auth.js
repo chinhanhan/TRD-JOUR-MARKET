@@ -7,14 +7,18 @@
     lifetime: "https://buy.stripe.com/8x25kD8wV45xeOI7VBdjO01"
   };
 
-  // Valid VIP Redeem Code patterns for manual approval (e.g. TNG transfer or promotions)
-  const VALID_REDEEM_KEYS = [
-    "TRD-PRO-VIP",
-    "TRD-EARLYBIRD-2026",
-    "TRD-MALAYSIA-PRO",
-    "TRD-COMMUNITY-VIP",
-    "TRD-SPECIAL-PRO"
-  ];
+  let authRevision = 0;
+  let unsubscribeProfile = null;
+
+  function effectiveSubscription(subscription = {}) {
+    const value = { plan: 'free', status: 'active', limit: 20, ...subscription };
+    const lifetime = value.tier === 'lifetime';
+    const valid = lifetime || (value.validUntil && Date.parse(value.validUntil) > Date.now());
+    if (value.plan !== 'pro' || !valid || ['expired', 'revoked', 'unpaid'].includes(value.status)) {
+      return { ...value, plan: 'free', limit: 20 };
+    }
+    return { ...value, limit: 999999 };
+  }
 
   const AuthState = {
     currentUser: null,
@@ -75,6 +79,7 @@
           this.closeModal();
           this.closeUpgradeModal();
         }
+        if (e.key === 'Tab') this.trapModalFocus(e);
       });
 
       // Tab Switching
@@ -113,162 +118,85 @@
 
     listenAuth() {
       window.fbAuth.onAuthStateChanged(async (user) => {
+        const revision = ++authRevision;
+        window.TRDCloudSync?.stop();
+        unsubscribeProfile?.();
+        unsubscribeProfile = null;
         AuthState.currentUser = user;
-        AuthState.isInitialized = true;
-
-        if (user) {
-          console.log("👤 [TRD Auth] User signed in:", user.email, user.uid);
+        AuthState.profile = null;
+        AuthState.subscription = { plan: 'free', status: 'active', limit: 20 };
+        document.getElementById('appShell').style.display = 'none';
+        try {
+          await window.TRDAppReady;
+          if (revision !== authRevision) return;
+          await window.TRDLocalStore.switchUser(user?.uid || null);
+          if (revision !== authRevision) return;
+          AuthState.isInitialized = true;
+          if (!user) {
+            this.renderAnonymousUI();
+            return;
+          }
           await this.loadUserProfile(user);
+          if (revision !== authRevision) return;
           this.renderAuthenticatedUI(user);
           this.closeModal();
-
-          // Initialize cloud trade sync
-          if (window.TRDCloudSync) {
-            window.TRDCloudSync.init(user.uid);
-          }
-
-          // Handle Pending Upgrade Intent from Landing Page
+          window.TRDCloudSync?.init(user.uid).catch(error => console.warn('Cloud connection pending:', error));
+          unsubscribeProfile = window.fbDb.collection('users').doc(user.uid).onSnapshot(snapshot => {
+            if (revision !== authRevision || !snapshot.exists) return;
+            const wasPro = AuthState.subscription.plan === 'pro';
+            AuthState.profile = snapshot.data();
+            window.TRDLocalStore.cacheProfile?.(user.uid, AuthState.profile).catch(error => console.warn('Profile cache failed:', error));
+            AuthState.subscription = effectiveSubscription(AuthState.profile.subscription);
+            this.renderAuthenticatedUI(user);
+            if (!wasPro && AuthState.subscription.plan === 'pro') window.TRDCloudSync?.schedulePush();
+          }, error => console.warn('Profile refresh failed:', error));
           if (sessionStorage.getItem('trd_pending_upgrade') === 'true') {
             sessionStorage.removeItem('trd_pending_upgrade');
-            const pendingTier = sessionStorage.getItem('trd_pending_tier');
-            if (pendingTier) {
-              AuthState.selectedTier = pendingTier;
-              sessionStorage.removeItem('trd_pending_tier');
-            }
-            setTimeout(() => {
-              this.openUpgradeModal();
-              if (pendingTier) this.selectUpgradeTier(pendingTier);
-            }, 600);
+            const tier = sessionStorage.getItem('trd_pending_tier');
+            sessionStorage.removeItem('trd_pending_tier');
+            this.openUpgradeModal(tier || null);
           }
-        } else {
-          console.log("🚪 [TRD Auth] User signed out.");
-          AuthState.profile = null;
-          AuthState.subscription = { plan: 'free', status: 'active', limit: 20 };
-          this.clearLocalUserData();
+        } catch (error) {
+          if (revision !== authRevision) return;
           this.renderAnonymousUI();
+          window.toast?.('Unable to load your account safely. Please retry: ' + error.message, 'error');
         }
       });
     },
 
-    clearLocalUserData() {
-      // Clear in-memory trades and reset to clean state to prevent data leakage between users
-      if (window.state) {
-        window.state.trades = [];
-        window.state.sops = [];
-        window.state.accounts = [];
-        window.state.activeSopId = "";
-        window.state.activeAccountId = "";
-      }
-      try {
-        const STORAGE_KEY = "trd-journey-os-v1";
-        localStorage.removeItem(STORAGE_KEY);
-        if (window.idbSet) {
-          window.idbSet(STORAGE_KEY, null);
-        }
-      } catch (e) {}
-
-      if (typeof window.renderAll === "function") {
-        window.renderAll();
-      }
+    async clearLocalUserData() {
+      window.TRDCloudSync?.stop();
+      await window.TRDLocalStore.switchUser(null);
     },
 
-    async loadUserProfile(user) {
-      if (!window.fbDb) return;
-      try {
-        const userDocRef = window.fbDb.collection('users').doc(user.uid);
-        const docSnap = await userDocRef.get();
-
-        // Check if user returned from successful Stripe payment
-        const isPaymentSuccess = window.location.search.includes('upgrade=success') || window.location.search.includes('payment=success') || window.location.search.includes('session_id=');
-
-        if (docSnap.exists) {
-          AuthState.profile = docSnap.data();
-          if (AuthState.profile.subscription) {
-            AuthState.subscription = AuthState.profile.subscription;
-          }
-        } else {
-          // Initialize new user profile document
-          const initialProfile = {
-            email: user.email,
-            createdAt: new Date().toISOString(),
-            subscription: {
-              plan: 'free',
-              status: 'active',
-              limit: 20,
-              subscribedAt: new Date().toISOString()
-            }
-          };
-          await userDocRef.set(initialProfile, { merge: true });
-          AuthState.profile = initialProfile;
-          AuthState.subscription = initialProfile.subscription || { plan: 'free', limit: 20 };
-        }
-
-        // Auto-Expiration Check for Pro Subscriptions (Stripe & TNG, Skip Lifetime)
-        const isLifetime = AuthState.subscription.tier === 'lifetime' || (AuthState.subscription.validUntil && new Date(AuthState.subscription.validUntil).getFullYear() > 2090);
-        if (!isLifetime && AuthState.subscription.plan === 'pro' && AuthState.subscription.validUntil) {
-          const expiryTime = new Date(AuthState.subscription.validUntil).getTime();
-          if (Date.now() > expiryTime) {
-            console.log("⏰ [TRD Auth] Pro subscription has expired. Auto-locking to Free tier.");
-            AuthState.subscription.plan = 'free';
-            AuthState.subscription.status = 'expired';
-            AuthState.subscription.limit = 20;
-            await userDocRef.set({ subscription: AuthState.subscription }, { merge: true });
-          }
-        }
-
-        // Activate or Extend Pro if returning from Stripe checkout (Multi-Tier Duration Handling)
-        if (isPaymentSuccess) {
-          const now = new Date();
-          const paidTier = localStorage.getItem('trd_pending_checkout_tier') || 'lifetime';
-          localStorage.removeItem('trd_pending_checkout_tier');
-
-          let validUntil = '2099-12-31T23:59:59.999Z';
-          let successMsg = "🎉 Congratulations! Your TRD Journey Founder Lifetime Pass is now ACTIVE! 👑";
-
-          if (paidTier === 'monthly') {
-            const baseTime = (AuthState.subscription.validUntil && new Date(AuthState.subscription.validUntil).getTime() > now.getTime())
-              ? new Date(AuthState.subscription.validUntil).getTime()
-              : now.getTime();
-            validUntil = new Date(baseTime + 30 * 24 * 60 * 60 * 1000).toISOString();
-            successMsg = "🎉 Your TRD Journey Pro Monthly subscription is active! 30 days added.";
-          } else if (paidTier === 'quarterly') {
-            const baseTime = (AuthState.subscription.validUntil && new Date(AuthState.subscription.validUntil).getTime() > now.getTime())
-              ? new Date(AuthState.subscription.validUntil).getTime()
-              : now.getTime();
-            validUntil = new Date(baseTime + 90 * 24 * 60 * 60 * 1000).toISOString();
-            successMsg = "🎉 Congratulations! Your TRD Journey Quarterly Pro is active! 90 days added.";
-          } else if (paidTier === 'yearly') {
-            const baseTime = (AuthState.subscription.validUntil && new Date(AuthState.subscription.validUntil).getTime() > now.getTime())
-              ? new Date(AuthState.subscription.validUntil).getTime()
-              : now.getTime();
-            validUntil = new Date(baseTime + 365 * 24 * 60 * 60 * 1000).toISOString();
-            successMsg = "🎉 Congratulations! Your TRD Journey Annual Pro is active! 365 days added.";
-          }
-
-          AuthState.subscription = {
-            plan: 'pro',
-            tier: paidTier,
-            status: 'active',
-            limit: 999999,
-            subscribedAt: AuthState.subscription.subscribedAt || now.toISOString(),
-            validUntil: validUntil,
-            provider: 'stripe'
-          };
-          await userDocRef.set({ subscription: AuthState.subscription }, { merge: true });
-          
-          if (typeof confetti === 'function') {
-            confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
-          }
-          if (window.toast) {
-            window.toast(successMsg, "win");
-          } else {
-            alert(successMsg);
-          }
-
-          window.history.replaceState({}, document.title, window.location.pathname);
-        }
-      } catch (err) {
-        console.error("Failed to load user profile:", err);
+    async loadUserProfile(user, { forceRefresh = false } = {}) {
+      if (!window.fbDb) throw new Error('Cloud profile service is unavailable.');
+      const ref = window.fbDb.collection('users').doc(user.uid);
+      // A UID-scoped cache keeps an existing journal usable offline. Server
+      // snapshots refresh it; this cache is never written back as entitlement.
+      const cached = forceRefresh ? null : await window.TRDLocalStore.getCachedProfile?.(user.uid).catch(() => null);
+      const snapshot = cached ? { exists: true, data: () => cached } : await ref.get(forceRefresh ? { source: 'server' } : undefined);
+      if (AuthState.currentUser?.uid !== user.uid) return;
+      if (snapshot.exists) AuthState.profile = snapshot.data();
+      else {
+        const profile = {
+          email: user.email, createdAt: new Date().toISOString(),
+          subscription: { plan: 'free', status: 'active', limit: 20 }
+        };
+        await ref.set(profile);
+        if (AuthState.currentUser?.uid !== user.uid) return;
+        AuthState.profile = profile;
+      }
+      AuthState.subscription = effectiveSubscription(AuthState.profile.subscription);
+      await window.TRDLocalStore.cacheProfile?.(user.uid, AuthState.profile).catch(error => console.warn('Profile cache failed:', error));
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('session_id') || url.searchParams.get('upgrade') === 'success' || url.searchParams.get('payment') === 'success') {
+        // A redirect is not proof of payment. Only a verified server event can
+        // update subscription; the profile listener displays it when confirmed.
+        window.toast?.(AuthState.subscription.plan === 'pro' ? 'Your Pro subscription is active.' : 'Payment confirmation is pending. Your plan will update after verification.', 'info');
+        ['session_id', 'upgrade', 'payment'].forEach(key => url.searchParams.delete(key));
+        window.history.replaceState({}, document.title, url.pathname + url.search + url.hash);
+        localStorage.removeItem('trd_pending_checkout_tier');
       }
     },
 
@@ -301,6 +229,7 @@
 
       // UI gating: hide premium features for free users
       const premiumFeatures = document.querySelectorAll('.premium-feature');
+      AuthState.subscription = effectiveSubscription(AuthState.subscription);
       const isPro = AuthState.subscription.plan === 'pro';
       const isLifetime = isPro && (AuthState.subscription.tier === 'lifetime' || (AuthState.subscription.validUntil && new Date(AuthState.subscription.validUntil).getFullYear() > 2090));
 
@@ -339,6 +268,7 @@
       const quotaBadge = document.getElementById('headerQuotaBadge');
       if (!quotaBadge) return;
 
+      AuthState.subscription = effectiveSubscription(AuthState.subscription);
       const isPro = AuthState.subscription.plan === 'pro';
       const isLifetime = isPro && (AuthState.subscription.tier === 'lifetime' || (AuthState.subscription.validUntil && new Date(AuthState.subscription.validUntil).getFullYear() > 2090));
       const tradeCount = (window.state && Array.isArray(window.state.trades)) ? window.state.trades.length : 0;
@@ -408,12 +338,30 @@
       this.applyProFeatureGating();
     },
 
+    focusModal(modal) {
+      this.modalOpener = document.activeElement;
+      const field = modal.querySelector('input:not([disabled]), button:not([disabled])');
+      (field || modal).focus();
+    },
+
+    trapModalFocus(event) {
+      const modal = document.querySelector('.auth-modal-backdrop.active');
+      if (!modal) return;
+      const items = [...modal.querySelectorAll('button, input, select, textarea, a[href], [tabindex="0"]')]
+        .filter(el => !el.disabled && el.getClientRects().length);
+      if (!items.length) { event.preventDefault(); modal.focus(); return; }
+      const first = items[0], last = items[items.length - 1];
+      if (!modal.contains(document.activeElement) || (!event.shiftKey && document.activeElement === last)) { event.preventDefault(); first.focus(); }
+      else if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    },
+
     openModal(tab = 'signin') {
       this.switchTab(tab);
       const modal = document.getElementById('authModalBackdrop');
       if (modal) {
         modal.classList.add('active');
         document.body.style.overflow = 'hidden';
+        this.focusModal(modal);
       }
       this.clearError();
     },
@@ -421,7 +369,9 @@
     closeModal() {
       const modal = document.getElementById('authModalBackdrop');
       if (modal) {
+        const wasOpen = modal.classList.contains('active');
         modal.classList.remove('active');
+        if (wasOpen) this.modalOpener?.focus();
         if (!document.getElementById('upgradeModalBackdrop')?.classList.contains('active')) {
           document.body.style.overflow = '';
         }
@@ -433,6 +383,7 @@
       if (modal) {
         modal.classList.add('active');
         document.body.style.overflow = 'hidden';
+        this.focusModal(modal);
       }
 
       this.selectUpgradeTier(targetTier || AuthState.selectedTier || 'lifetime');
@@ -462,7 +413,9 @@
     closeUpgradeModal() {
       const modal = document.getElementById('upgradeModalBackdrop');
       if (modal) {
+        const wasOpen = modal.classList.contains('active');
         modal.classList.remove('active');
+        if (wasOpen) this.modalOpener?.focus();
         if (!document.getElementById('authModalBackdrop')?.classList.contains('active')) {
           document.body.style.overflow = '';
         }
@@ -601,129 +554,40 @@
     },
 
     async handleRedeemKey() {
-      const keyInput = document.getElementById('redeemKeyInput');
-      const feedbackEl = document.getElementById('redeemFeedbackMsg');
-      if (!keyInput || !feedbackEl) return;
-
-      const enteredKey = keyInput.value.trim().toUpperCase();
-      if (!enteredKey) {
-        feedbackEl.style.display = 'block';
-        feedbackEl.style.color = '#ff453a';
-        feedbackEl.textContent = 'Please enter an activation code.';
-        return;
-      }
-
-      const isValid = VALID_REDEEM_KEYS.includes(enteredKey) || enteredKey.startsWith("TRD-PRO-");
-      if (!isValid) {
-        feedbackEl.style.display = 'block';
-        feedbackEl.style.color = '#ff453a';
-        feedbackEl.textContent = 'Invalid activation key. Please contact support via WhatsApp.';
-        return;
-      }
-
+      const input = document.getElementById('redeemKeyInput');
+      const feedback = document.getElementById('redeemFeedbackMsg');
+      if (!input || !feedback) return;
       const user = this.getUser();
-      if (!user) {
-        feedbackEl.style.display = 'block';
-        feedbackEl.style.color = '#ff9f0a';
-        feedbackEl.textContent = 'Please sign in or create an account first.';
+      const code = input.value.trim().toUpperCase();
+      feedback.style.display = 'block';
+      feedback.style.color = '#ff9f0a';
+      if (!user || !code) {
+        feedback.textContent = !user ? 'Please sign in first.' : 'Enter your activation code.';
         return;
       }
-
+      if (this.redeeming) return;
+      this.redeeming = true;
       try {
-        feedbackEl.style.display = 'block';
-        feedbackEl.style.color = '#0a84ff';
-        feedbackEl.textContent = 'Verifying key & upgrading...';
-
-        // 1. Check if key has already been consumed by another user in Firestore
-        if (window.fbDb) {
-          const keyDocRef = window.fbDb.collection('redeemed_keys').doc(enteredKey);
-          const keyDocSnap = await keyDocRef.get();
-
-          if (keyDocSnap.exists) {
-            const keyData = keyDocSnap.data();
-            if (keyData && keyData.usedBy && keyData.usedBy !== user.uid) {
-              feedbackEl.style.color = '#ff453a';
-              feedbackEl.innerHTML = '⚠️ <strong>This activation code has already been redeemed</strong> by another user. Each code is valid for 1 account only.';
-              return;
-            }
-          }
-        }
-
-        const isLifetimeKey = enteredKey.includes('LIFETIME') || enteredKey.includes('FOREVER') || enteredKey.includes('FOUNDER');
-        const isAnnualKey = enteredKey.includes('YEAR') || enteredKey.includes('ANNUAL');
-        const isQuarterlyKey = enteredKey.includes('QUARTER') || enteredKey.includes('QTR');
-
-        const now = new Date();
-        let validUntil = '2099-12-31T23:59:59.999Z';
-        let keyTier = 'lifetime';
-        let successNotice = '🎉 VIP Key Redeemed! You now have Founder Lifetime Access! 👑';
-
-        if (isLifetimeKey) {
-          validUntil = '2099-12-31T23:59:59.999Z';
-          keyTier = 'lifetime';
-          successNotice = '🎉 VIP Key Redeemed! You now have Founder Lifetime Access! 👑';
-        } else if (isAnnualKey) {
-          const baseTime = (AuthState.subscription.validUntil && new Date(AuthState.subscription.validUntil).getTime() > now.getTime())
-            ? new Date(AuthState.subscription.validUntil).getTime()
-            : now.getTime();
-          validUntil = new Date(baseTime + 365 * 24 * 60 * 60 * 1000).toISOString();
-          keyTier = 'yearly';
-          successNotice = '🎉 VIP Key Redeemed! 365 Days of Annual Pro Access added!';
-        } else if (isQuarterlyKey) {
-          const baseTime = (AuthState.subscription.validUntil && new Date(AuthState.subscription.validUntil).getTime() > now.getTime())
-            ? new Date(AuthState.subscription.validUntil).getTime()
-            : now.getTime();
-          validUntil = new Date(baseTime + 90 * 24 * 60 * 60 * 1000).toISOString();
-          keyTier = 'quarterly';
-          successNotice = '🎉 VIP Key Redeemed! 90 Days of Quarterly Pro Access added!';
-        } else {
-          const baseTime = (AuthState.subscription.validUntil && new Date(AuthState.subscription.validUntil).getTime() > now.getTime())
-            ? new Date(AuthState.subscription.validUntil).getTime()
-            : now.getTime();
-          validUntil = new Date(baseTime + 30 * 24 * 60 * 60 * 1000).toISOString();
-          keyTier = 'monthly';
-          successNotice = '🎉 VIP Key Redeemed! 30 Days of Pro Access added!';
-        }
-
-        AuthState.subscription = {
-          plan: 'pro',
-          tier: keyTier,
-          status: 'active',
-          limit: 999999,
-          subscribedAt: AuthState.subscription.subscribedAt || now.toISOString(),
-          validUntil: validUntil,
-          provider: 'redeem_code',
-          redeemKey: enteredKey
-        };
-
-        if (window.fbDb) {
-          // Atomically mark key as redeemed by this user
-          const keyDocRef = window.fbDb.collection('redeemed_keys').doc(enteredKey);
-          await keyDocRef.set({
-            key: enteredKey,
-            tier: keyTier,
-            usedBy: user.uid,
-            userEmail: user.email,
-            usedAt: now.toISOString(),
-            validUntil: validUntil
-          }, { merge: true });
-
-          const userDocRef = window.fbDb.collection('users').doc(user.uid);
-          await userDocRef.set({ subscription: AuthState.subscription }, { merge: true });
-        }
-
-        if (typeof confetti === 'function') {
-          confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
-        }
-
-        feedbackEl.style.color = '#30d158';
-        feedbackEl.innerHTML = successNotice;
+        feedback.textContent = 'Verifying your activation code...';
+        const token = await user.getIdToken();
+        const projectId = window.fbApp.options.projectId;
+        const response = await fetch(`https://us-central1-${projectId}.cloudfunctions.net/redeemKey`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ data: { code } })
+        });
+        const result = await response.json();
+        if (!response.ok || result.error) throw new Error(result.error?.message || 'Verification service unavailable. Please contact support.');
+        if (this.getUser()?.uid !== user.uid) return;
+        await this.loadUserProfile(user, { forceRefresh: true });
+        if (this.getUser()?.uid !== user.uid) return;
         this.renderAuthenticatedUI(user);
-        setTimeout(() => this.closeUpgradeModal(), 2000);
-      } catch (e) {
-        feedbackEl.style.color = '#ff453a';
-        feedbackEl.textContent = 'Activation failed: ' + e.message;
-      }
+        if (AuthState.subscription.plan === 'pro') window.TRDCloudSync?.schedulePush();
+        feedback.style.color = '#30d158';
+        feedback.textContent = result.result?.alreadyRedeemed ? 'This code is already applied to your account.' : 'Activation confirmed. Your plan has been updated.';
+      } catch (error) {
+        feedback.style.color = '#ff453a';
+        feedback.textContent = error.message || 'Activation could not be verified. Please contact support.';
+      } finally { this.redeeming = false; }
     },
 
     handleUpgradeClick() {
@@ -894,11 +758,6 @@
           AuthState.subscription.status = 'expired';
           AuthState.subscription.limit = 20;
 
-          if (window.fbDb && AuthState.currentUser) {
-            window.fbDb.collection('users').doc(AuthState.currentUser.uid).set({
-              subscription: AuthState.subscription
-            }, { merge: true });
-          }
 
           this.updateQuotaBadge();
           if (window.toast) {
@@ -926,6 +785,7 @@
     },
 
     applyProFeatureGating() {
+      AuthState.subscription = effectiveSubscription(AuthState.subscription);
       const isPro = AuthState.subscription.plan === 'pro';
       
       // Pro-locked panels in Review module
@@ -966,7 +826,7 @@
       const banner = document.getElementById('authErrorBanner');
       if (banner) {
         banner.className = 'auth-error-banner';
-        banner.innerHTML = msg;
+        banner.textContent = msg;
         banner.style.display = 'block';
       }
     },
@@ -975,7 +835,7 @@
       const banner = document.getElementById('authErrorBanner');
       if (banner) {
         banner.className = 'auth-error-banner success';
-        banner.innerHTML = msg;
+        banner.textContent = msg;
         banner.style.display = 'block';
       }
     },
@@ -990,7 +850,7 @@
     },
 
     getSubscription() {
-      return AuthState.subscription;
+      return { ...effectiveSubscription(AuthState.subscription) };
     }
   };
 

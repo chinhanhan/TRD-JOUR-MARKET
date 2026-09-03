@@ -6821,3 +6821,16 @@ body:not(:has(#landing-gallery.active)) .ios-dock-container {
 }
 
 
+
+/* Keep the risk gate readable inside narrow capture sheets. */
+.pre-flight-header { flex-wrap: wrap; }
+.pre-flight-title-box { flex: 1 1 240px; min-width: 0; }
+.pre-flight-icon { flex: 0 0 auto; }
+.pre-flight-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.pre-flight-actions button { white-space: nowrap; flex-shrink: 0; }
+@media (max-width: 520px) {
+  .pre-flight-header { align-items: flex-start; }
+  .pre-flight-actions { width: 100%; }
+  .pre-flight-actions button { min-height: 36px; }
+  .preflight-progress-pill { margin-left: auto; }
+}

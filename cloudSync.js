@@ -1,328 +1,193 @@
-// TRD Journey SaaS - Real-Time Multi-Device Cloud Sync Engine (Live Snapshot + 1MB Guard + Conflict-Free Merge)
+// Real-time sync: explicit local persistence, transactional merges and retryable writes.
 (function() {
-  let activeUid = null;
-  let syncDebounceTimer = null;
-  let isSyncing = false;
-  let isApplyingRemoteUpdate = false;
-  let unsubscribeSnapshot = null;
-  let lastPushedTimestamp = null;
-
-  // Maximum safe byte size for Firestore document (capped at 750KB to leave safe buffer under 1MB)
   const MAX_SAFE_DOC_BYTES = 750 * 1024;
-
-  const originalSaveState = window.saveState;
+  let session = null;
+  const bytes = value => new Blob([JSON.stringify(value)]).size;
+  const current = s => session === s && window.TRDLocalStore?.getOwnerUid() === s.uid;
+  const stateRef = s => window.fbDb.collection('users').doc(s.uid).collection('data').doc('state');
 
   window.TRDCloudSync = {
     async init(uid) {
-      if (!uid || !window.fbDb) return;
-      activeUid = uid;
-      console.log("☁️ [TRD CloudSync] Initializing real-time multi-device sync for user:", uid);
-      this.updateSyncIndicator("syncing", "Connecting live cloud sync...");
-
-      // Clean up previous listeners if any
-      if (unsubscribeSnapshot) {
-        unsubscribeSnapshot();
-        unsubscribeSnapshot = null;
-      }
-
-      await this.pullFromCloud();
-      this.listenRealtimeUpdates();
+      this.stop();
+      if (!uid || !window.fbDb || window.TRDLocalStore?.getOwnerUid() !== uid) return false;
+      const s = session = { uid, pending: false, timer: null, running: null, unsubscribe: null, ownWrites: new Set(), retries: 0 };
+      this.updateSyncIndicator('syncing', 'Connecting cloud sync...');
+      const ok = await this.pullFromCloud();
+      if (!current(s)) return false;
+      s.unsubscribe = stateRef(s).onSnapshot(snap => {
+        if (!current(s) || !snap.exists || snap.metadata?.hasPendingWrites) return;
+        const remote = snap.data();
+        if (s.ownWrites.has(remote.syncWriteId)) return;
+        if (window.isImporting) { s.pendingRemote = remote; return; }
+        this.applyRemote(s, remote).catch(error => this.fail(s, error));
+      }, error => this.fail(s, error));
+      return ok;
     },
 
-    updateSyncIndicator(status, tooltip = "") {
-      const dot = document.getElementById("syncStatusDot");
+    stop() {
+      const old = session;
+      session = null;
+      if (!old) return;
+      clearTimeout(old.timer);
+      old.unsubscribe?.();
+      // Any in-flight write uses its captured UID; its completion cannot touch
+      // the next user's in-memory state or profile.
+    },
+
+    updateSyncIndicator(status, tooltip = '') {
+      const dot = document.getElementById('syncStatusDot');
       if (!dot) return;
       dot.className = `status-dot ${status}`;
-      dot.title = tooltip || (status === "online" ? "Cloud Synced ✓" : status);
+      dot.title = tooltip || status;
     },
 
-    // Real-time live snapshot listener for multi-window / multi-device instant sync
-    listenRealtimeUpdates() {
-      if (!activeUid || !window.fbDb) return;
-      try {
-        const stateDocRef = window.fbDb.collection("users").doc(activeUid).collection("data").doc("state");
-        unsubscribeSnapshot = stateDocRef.onSnapshot(async (docSnap) => {
-          if (window.isImporting) { console.log("⏸️ [CloudSync] Paused during import"); return; }
-          if (!docSnap.exists) return;
-          const cloudData = docSnap.data();
-          if (!cloudData || typeof cloudData !== "object") return;
-
-          // Prevent echo loops: if this was our own push, skip re-applying
-          if (lastPushedTimestamp && cloudData.updatedAt === lastPushedTimestamp) {
-            return;
-          }
-
-          if (window.state && Array.isArray(cloudData.trades)) {
-            console.log("⚡ [TRD CloudSync] Live remote update received from another device.");
-            window.state.trades = this.mergeTradeArrays(window.state.trades, cloudData.trades);
-            if (Array.isArray(cloudData.sops) && cloudData.sops.length > 0) {
-              window.state.sops = cloudData.sops;
-            }
-            if (Array.isArray(cloudData.accounts) && cloudData.accounts.length > 0) {
-              window.state.accounts = cloudData.accounts;
-            }
-            if (cloudData.preferences) {
-              window.state.preferences = { ...window.state.preferences, ...cloudData.preferences };
-            } else if (cloudData.settings) {
-              window.state.preferences = { ...window.state.preferences, ...cloudData.settings };
-            }
-            if (cloudData.dailyPlans) {
-              window.state.dailyPlans = { ...window.state.dailyPlans, ...cloudData.dailyPlans };
-            }
-            if (cloudData.dailyReviews) {
-              window.state.dailyReviews = { ...window.state.dailyReviews, ...cloudData.dailyReviews };
-            }
-            if (cloudData.reflections) {
-              window.state.reflections = { ...window.state.reflections, ...cloudData.reflections };
-            }
-            if (cloudData.playbook) {
-              window.state.playbook = { ...window.state.playbook, ...cloudData.playbook };
-            }
-            if (cloudData.longGame) {
-              window.state.longGame = { ...window.state.longGame, ...cloudData.longGame };
-            }
-            if (cloudData.experience) {
-              window.state.experience = { ...window.state.experience, ...cloudData.experience };
-            }
-            if (Array.isArray(cloudData.backtests)) {
-              window.state.backtests = cloudData.backtests;
-            }
-            if (cloudData.activeSopId) window.state.activeSopId = cloudData.activeSopId;
-            if (cloudData.activeAccountId) window.state.activeAccountId = cloudData.activeAccountId;
-
-            // Save to IndexedDB locally without triggering a push echo back to cloud
-            isApplyingRemoteUpdate = true;
-            try {
-              if (typeof originalSaveState === "function") {
-                await originalSaveState();
-              }
-            } finally {
-              isApplyingRemoteUpdate = false;
-            }
-
-            if (typeof window.renderAll === "function") {
-              window.renderAll();
-            }
-            if (window.TRDAuth && typeof window.TRDAuth.updateQuotaBadge === "function") {
-              window.TRDAuth.updateQuotaBadge();
-            }
-            this.updateSyncIndicator("online", "Live Multi-Device Synced ✓");
-          }
-        }, (err) => {
-          console.warn("☁️ [TRD CloudSync] Realtime snapshot warning:", err);
-        });
-      } catch (e) {
-        console.error("☁️ [TRD CloudSync] Listener setup error:", e);
-      }
+    fail(s, error) {
+      if (!current(s)) return;
+      console.error('[TRD CloudSync]', error);
+      const quota = error.code === 'permission-denied' && window.TRDAuth?.getSubscription().plan !== 'pro' && (window.state.trades || []).length > 20;
+      const message = quota ? 'Cloud quota exceeded. Your full journal is saved locally; export a backup or upgrade to sync more than 20 trades.' : 'Cloud Save Failed: ' + error.message;
+      this.updateSyncIndicator('offline', message);
+      window.toast?.(message, 'error');
     },
 
-    // Deep merge local trades and cloud trades by id and timestamp (Never loses offline trades)
+    async applyRemote(s, remote) {
+      if (!current(s)) return false;
+      if (remote.ownerUid && remote.ownerUid !== s.uid) throw new Error('Cloud data belongs to another account.');
+      const merged = window.TRDStateSync.merge(window.state, remote);
+      merged.ownerUid = s.uid;
+      const saved = await window.TRDLocalStore.applyRemote(merged, s.uid);
+      if (!current(s)) return false;
+      if (!saved) throw new Error('Received cloud data could not be saved on this device.');
+      if (!s.pending && !s.running) this.updateSyncIndicator('online', 'Saved locally and synced to cloud');
+      return true;
+    },
+
     mergeTradeArrays(localTrades = [], cloudTrades = []) {
-      const tradeMap = new Map();
-
-      // Put cloud trades first
-      cloudTrades.forEach(trade => {
-        if (trade && trade.id) {
-          tradeMap.set(trade.id, trade);
-        }
-      });
-
-      // Merge local trades: if local has updated version or new offline trades, preserve them
-      localTrades.forEach(trade => {
-        if (trade && trade.id) {
-          if (!tradeMap.has(trade.id)) {
-            tradeMap.set(trade.id, trade);
-          } else {
-            const cloudTrade = tradeMap.get(trade.id);
-            const localHasImages = Array.isArray(trade.images) && trade.images.length > 0;
-            const cloudHasImages = Array.isArray(cloudTrade.images) && cloudTrade.images.length > 0;
-
-            if (localHasImages && !cloudHasImages) {
-              tradeMap.set(trade.id, { ...cloudTrade, ...trade });
-            } else if (trade.updatedAt && cloudTrade.updatedAt) {
-              if (new Date(trade.updatedAt).getTime() > new Date(cloudTrade.updatedAt).getTime()) {
-                tradeMap.set(trade.id, { ...cloudTrade, ...trade });
-              }
-            }
-          }
-        }
-      });
-
-      return Array.from(tradeMap.values()).sort((a, b) => {
-        const timeA = new Date(a.openTime || a.date || 0).getTime();
-        const timeB = new Date(b.openTime || b.date || 0).getTime();
-        return timeB - timeA;
-      });
+      return window.TRDStateSync.merge({ trades: localTrades }, { trades: cloudTrades }).trades;
     },
 
-    // Compresses & strips heavy old image blobs for cloud payload if nearing 1MB limit
     sanitizeStateForCloud(rawState) {
-      const cleanState = JSON.parse(JSON.stringify(rawState));
-      let jsonString = JSON.stringify(cleanState);
-      let byteSize = new Blob([jsonString]).size;
-
-      if (byteSize <= MAX_SAFE_DOC_BYTES) {
-        return cleanState;
-      }
-
-      console.warn(`⚠️ [TRD CloudSync] Payload size (${Math.round(byteSize / 1024)}KB) exceeds safe threshold. Optimizing old image thumbnails for cloud...`);
-
-      if (Array.isArray(cleanState.trades)) {
-        // Strip images starting from the oldest trades until size is safe
-        for (let i = 0; i < cleanState.trades.length; i++) {
-          const trade = cleanState.trades[i];
-          if (trade.images && trade.images.length > 0) {
-            trade.imagesCloudStripped = true;
-            delete trade.images;
-            delete trade.imageData;
-            
-            // Recalculate size
-            jsonString = JSON.stringify(cleanState);
-            byteSize = new Blob([jsonString]).size;
-            if (byteSize <= MAX_SAFE_DOC_BYTES) {
-              break;
-            }
-          }
+      const clean = JSON.parse(JSON.stringify(rawState));
+      // Cloud metadata must fit inside the same 750KB budget.
+      if (bytes(clean) <= MAX_SAFE_DOC_BYTES) return clean;
+      const oldestFirst = [...(clean.trades || [])].sort((a, b) =>
+        String(a.openTime || a.date || '').localeCompare(String(b.openTime || b.date || '')));
+      for (const trade of oldestFirst) {
+        if ((trade.images?.length) || trade.imageData) {
+          trade.imagesCloudStripped = true;
+          delete trade.images;
+          delete trade.imageData;
+          if (bytes(clean) <= MAX_SAFE_DOC_BYTES) return clean;
         }
       }
-
-      return cleanState;
+      throw new Error('Journal exceeds the 750KB cloud limit even without screenshots. Your local data is safe; export a JSON backup.');
     },
 
     async pullFromCloud() {
-      if (!activeUid || !window.fbDb) return;
+      const s = session;
+      if (!s || !current(s)) return false;
       try {
-        const stateDocRef = window.fbDb.collection("users").doc(activeUid).collection("data").doc("state");
-        const docSnap = await stateDocRef.get();
-
-        if (docSnap.exists) {
-          const cloudData = docSnap.data();
-          if (cloudData && typeof cloudData === "object") {
-            console.log("☁️ [TRD CloudSync] Pulled cloud state successfully.");
-
-            if (window.state) {
-              if (Array.isArray(cloudData.trades)) {
-                window.state.trades = this.mergeTradeArrays(window.state.trades, cloudData.trades);
-              }
-              if (Array.isArray(cloudData.sops) && cloudData.sops.length > 0) {
-                window.state.sops = cloudData.sops;
-              }
-              if (Array.isArray(cloudData.accounts) && cloudData.accounts.length > 0) {
-                window.state.accounts = cloudData.accounts;
-              }
-              if (cloudData.preferences) {
-                window.state.preferences = { ...window.state.preferences, ...cloudData.preferences };
-              } else if (cloudData.settings) {
-                window.state.preferences = { ...window.state.preferences, ...cloudData.settings };
-              }
-              if (cloudData.dailyPlans) {
-                window.state.dailyPlans = { ...window.state.dailyPlans, ...cloudData.dailyPlans };
-              }
-              if (cloudData.dailyReviews) {
-                window.state.dailyReviews = { ...window.state.dailyReviews, ...cloudData.dailyReviews };
-              }
-              if (cloudData.reflections) {
-                window.state.reflections = { ...window.state.reflections, ...cloudData.reflections };
-              }
-              if (cloudData.playbook) {
-                window.state.playbook = { ...window.state.playbook, ...cloudData.playbook };
-              }
-              if (cloudData.longGame) {
-                window.state.longGame = { ...window.state.longGame, ...cloudData.longGame };
-              }
-              if (cloudData.experience) {
-                window.state.experience = { ...window.state.experience, ...cloudData.experience };
-              }
-              if (Array.isArray(cloudData.backtests)) {
-                window.state.backtests = cloudData.backtests;
-              }
-              if (cloudData.activeSopId) window.state.activeSopId = cloudData.activeSopId;
-              if (cloudData.activeAccountId) window.state.activeAccountId = cloudData.activeAccountId;
-
-              // Save locally to IndexedDB without triggering an outbound push
-              isApplyingRemoteUpdate = true;
-              try {
-                if (typeof originalSaveState === "function") {
-                  await originalSaveState();
-                }
-              } finally {
-                isApplyingRemoteUpdate = false;
-              }
-
-              if (typeof window.renderAll === "function") {
-                window.renderAll();
-              }
-            }
-          }
-        } else {
-          console.log("☁️ [TRD CloudSync] First cloud sync: pushing existing local state.");
-          await this.pushToCloudImmediate();
-        }
-        this.updateSyncIndicator("online", "Live Cloud Synced ✓");
-        if (window.TRDAuth && typeof window.TRDAuth.updateQuotaBadge === "function") {
-          window.TRDAuth.updateQuotaBadge();
-        }
-      } catch (err) {
-        console.error("☁️ [TRD CloudSync] Pull error:", err);
-        this.updateSyncIndicator("offline", "Sync error: " + err.message);
+        const snap = await stateRef(s).get();
+        if (!current(s)) return false;
+        if (snap.exists) await this.applyRemote(s, snap.data());
+        // Also upload offline additions merged during the pull.
+        s.pending = true;
+        return await this.pushToCloudImmediate();
+      } catch (error) {
+        this.fail(s, error);
+        return false;
       }
     },
 
     schedulePush() {
-      if (!activeUid || !window.fbDb) return;
-      if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
-      this.updateSyncIndicator("syncing", "Saving changes to cloud...");
-      syncDebounceTimer = setTimeout(() => {
-        this.pushToCloudImmediate();
-      }, 800);
+      const s = session;
+      if (!s || !current(s)) return;
+      s.pending = true;
+      clearTimeout(s.timer);
+      this.updateSyncIndicator('syncing', 'Saved locally; cloud save pending...');
+      s.timer = setTimeout(() => this.pushToCloudImmediate(), 800);
     },
 
     async pushToCloudImmediate() {
-      if (!activeUid || !window.fbDb || isSyncing) return;
-      if (!window.state) return;
-      isSyncing = true;
-      try {
-        const stateDocRef = window.fbDb.collection("users").doc(activeUid).collection("data").doc("state");
-        const cleanState = this.sanitizeStateForCloud(window.state);
-        const timestamp = new Date().toISOString();
-        cleanState.updatedAt = timestamp;
-        cleanState.tradeCount = (window.state.trades || []).length;
-        lastPushedTimestamp = timestamp;
-
-        await stateDocRef.set(cleanState, { merge: true });
-
-        const profileRef = window.fbDb.collection("users").doc(activeUid);
-        await profileRef.set({
-          lastActiveAt: timestamp,
-          tradeCount: cleanState.tradeCount
-        }, { merge: true });
-
-        this.updateSyncIndicator("online", "Live Cloud Synced ✓");
-        if (window.TRDAuth && typeof window.TRDAuth.updateQuotaBadge === "function") {
-          window.TRDAuth.updateQuotaBadge();
+      const s = session;
+      if (!s || !current(s)) return false;
+      clearTimeout(s.timer);
+      s.pending = true;
+      if (s.running) return s.running;
+      const run = async () => {
+        try {
+          while (current(s) && s.pending) {
+            if (window.isImporting) return false;
+            s.pending = false;
+            const local = window.TRDLocalStore.getSnapshot();
+            if (!local || local.ownerUid !== s.uid) throw new Error('Local account data is not ready.');
+            const writeId = `${s.uid}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+            s.ownWrites.add(writeId);
+            if (s.ownWrites.size > 30) s.ownWrites.delete(s.ownWrites.values().next().value);
+            let written;
+            await window.fbDb.runTransaction(async transaction => {
+              const ref = stateRef(s);
+              const remote = await transaction.get(ref);
+              if (!current(s)) throw new Error('Account changed during sync.');
+              const data = remote.exists ? remote.data() : {};
+              if (data.ownerUid && data.ownerUid !== s.uid) throw new Error('Cloud account mismatch.');
+              written = window.TRDStateSync.merge(local, data);
+              written.ownerUid = s.uid;
+              written.updatedAt = new Date().toISOString();
+              written.syncWriteId = writeId;
+              written.tradeCount = (written.trades || []).length;
+              const payload = this.sanitizeStateForCloud(written);
+              // Replace only this state document. Merge has already preserved
+              // concurrent updates; replacing also removes deleted map fields.
+              transaction.set(ref, payload);
+            });
+            if (!current(s)) return false;
+            await this.applyRemote(s, written);
+            await window.fbDb.collection('users').doc(s.uid).set({
+              lastActiveAt: written.updatedAt, tradeCount: written.tradeCount
+            }, { merge: true });
+          }
+          if (current(s)) {
+            s.retries = 0;
+            this.updateSyncIndicator('online', 'Saved locally and synced to cloud');
+            window.TRDAuth?.updateQuotaBadge();
+          }
+          return true;
+        } catch (error) {
+          if (current(s)) {
+            s.pending = true;
+            this.fail(s, error);
+            // Retry a bounded number of times. Further edits or reconnecting
+            // resume the queue; never discard unsynced local data.
+            if (error.code !== 'permission-denied' && ++s.retries <= 3) s.timer = setTimeout(() => this.pushToCloudImmediate(), 2000 * s.retries);
+          }
+          return false;
         }
-      } catch (err) {
-        console.error("☁️ [TRD CloudSync] Push error:", err);
-        if (window.toast) window.toast("Cloud Save Failed: " + err.message, "error");
-        this.updateSyncIndicator("offline", "Cloud save failed");
-      } finally {
-        isSyncing = false;
-      }
-    }
-  };
+      };
+      s.running = run();
+      try { return await s.running; }
+      finally { s.running = null; }
+    },
 
-  // Intercept window.saveState for local user edits only
-  window.saveState = async function(options = {}) {
-    let result = true;
-    const shouldSkipCloud = Boolean(options && (options.skipCloud || options.skipCloudPush));
-    if (typeof originalSaveState === "function") {
-      result = await originalSaveState({ ...options, skipCloud: shouldSkipCloud });
-    }
-    if (!isApplyingRemoteUpdate && !shouldSkipCloud) {
-      if (window.TRDCloudSync && typeof window.TRDCloudSync.schedulePush === "function") {
-        window.TRDCloudSync.schedulePush();
+    async resumeAfterImport() {
+      const s = session;
+      if (!s || !current(s)) return;
+      if (s.pendingRemote) {
+        const remote = s.pendingRemote;
+        s.pendingRemote = null;
+        await this.applyRemote(s, remote);
       }
+      await this.pushToCloudImmediate();
+    },
+
+    refreshStatus() {
+      if (!session) this.updateSyncIndicator('offline', 'Local journal; sign in for cloud sync');
+      else if (!navigator.onLine) this.updateSyncIndicator('offline', 'Offline; changes stay on this device until synced');
+      else if (session.pending || session.running) this.updateSyncIndicator('syncing', 'Cloud save pending...');
     }
-    return result;
   };
+  window.addEventListener('online', () => {
+    if (session) { session.retries = 0; window.TRDCloudSync.pullFromCloud(); }
+  });
+  window.addEventListener('offline', () => window.TRDCloudSync.refreshStatus());
 })();

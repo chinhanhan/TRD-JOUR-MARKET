@@ -3,7 +3,10 @@
     "rules": "firestore.rules"
   },
   "hosting": {
-    "public": ".",
+    "public": "dist",
+    "predeploy": [
+      "node \"$PROJECT_DIR/scripts/prepare-hosting.cjs\""
+    ],
     "ignore": [
       "firebase.json",
       "firestore.rules",
@@ -30,6 +33,17 @@
           }
         ]
       }
+    ]
+  },
+  "functions": {
+    "source": "functions",
+    "runtime": "nodejs22",
+    "ignore": [
+      "node_modules",
+      ".git",
+      "*.log",
+      "issue-code.cjs",
+      "migrate-profiles.cjs"
     ]
   }
 }

@@ -201,18 +201,18 @@
           await userDocRef.set(initialProfile, { merge: true });
           AuthState.profile = initialProfile;
           AuthState.subscription = initialProfile.subscription || { plan: 'free', limit: 20 };
+        }
 
-          // Auto-Expiration Check for Pro Subscriptions (Stripe & TNG, Skip Lifetime)
-          const isLifetime = AuthState.subscription.tier === 'lifetime' || (AuthState.subscription.validUntil && new Date(AuthState.subscription.validUntil).getFullYear() > 2090);
-          if (!isLifetime && AuthState.subscription.plan === 'pro' && AuthState.subscription.validUntil) {
-            const expiryTime = new Date(AuthState.subscription.validUntil).getTime();
-            if (Date.now() > expiryTime) {
-              console.log("⏰ [TRD Auth] Pro subscription has expired. Auto-locking to Free tier.");
-              AuthState.subscription.plan = 'free';
-              AuthState.subscription.status = 'expired';
-              AuthState.subscription.limit = 20;
-
-            }
+        // Auto-Expiration Check for Pro Subscriptions (Stripe & TNG, Skip Lifetime)
+        const isLifetime = AuthState.subscription.tier === 'lifetime' || (AuthState.subscription.validUntil && new Date(AuthState.subscription.validUntil).getFullYear() > 2090);
+        if (!isLifetime && AuthState.subscription.plan === 'pro' && AuthState.subscription.validUntil) {
+          const expiryTime = new Date(AuthState.subscription.validUntil).getTime();
+          if (Date.now() > expiryTime) {
+            console.log("⏰ [TRD Auth] Pro subscription has expired. Auto-locking to Free tier.");
+            AuthState.subscription.plan = 'free';
+            AuthState.subscription.status = 'expired';
+            AuthState.subscription.limit = 20;
+            await userDocRef.set({ subscription: AuthState.subscription }, { merge: true });
           }
         }
 

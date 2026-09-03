@@ -302,7 +302,8 @@
           window.TRDAuth.updateQuotaBadge();
         }
       } catch (err) {
-        console.error("☁️ [TRD CloudSync] Push error:", err); alert("Cloud Save Failed: " + err.message);
+        console.error("☁️ [TRD CloudSync] Push error:", err);
+        if (window.toast) window.toast("Cloud Save Failed: " + err.message, "error");
         this.updateSyncIndicator("offline", "Cloud save failed");
       } finally {
         isSyncing = false;

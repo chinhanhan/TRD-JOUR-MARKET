@@ -3,6 +3,7 @@ const ASSETS = [
   './',
   './index.html',
   './styles.css',
+  './dock.css',
   './auth.css',
   './firebaseConfig.js',
   './auth.js',

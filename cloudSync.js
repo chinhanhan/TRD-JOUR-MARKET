@@ -314,10 +314,11 @@
   // Intercept window.saveState for local user edits only
   window.saveState = async function(options = {}) {
     let result = true;
+    const shouldSkipCloud = Boolean(options && (options.skipCloud || options.skipCloudPush));
     if (typeof originalSaveState === "function") {
-      result = await originalSaveState();
+      result = await originalSaveState({ ...options, skipCloud: shouldSkipCloud });
     }
-    if (!isApplyingRemoteUpdate && !(options && options.skipCloudPush)) {
+    if (!isApplyingRemoteUpdate && !shouldSkipCloud) {
       if (window.TRDCloudSync && typeof window.TRDCloudSync.schedulePush === "function") {
         window.TRDCloudSync.schedulePush();
       }

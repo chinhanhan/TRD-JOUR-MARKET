@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trd-journey-v201-kill-cache';
+const CACHE_NAME = 'trd-journey-v202-maintenance';
 const ASSETS = [
   './',
   './index.html',

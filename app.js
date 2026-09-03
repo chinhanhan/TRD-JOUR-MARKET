@@ -723,6 +723,7 @@ function ensureSopState(rawState) {
 
 async function saveState(options = {}) {
   try {
+    window.state = state;
     await idbSet(STORAGE_KEY, JSON.parse(JSON.stringify(state)));
     if (!options.skipCloud && window.TRDCloudSync && typeof window.TRDCloudSync.schedulePush === "function") {
       window.TRDCloudSync.schedulePush();

@@ -8,3 +8,6 @@ dist/
 .vercel/
 patch*.js
 test*.js
+
+# Generated Firebase deployment caches
+.firebase/

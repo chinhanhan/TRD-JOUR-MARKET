@@ -142,3 +142,13 @@ node functions/migrate-profiles.cjs --apply
 - 生产资料只读检查：1 个已有 Pro 资料，无待补充的到期时间字段，无无效到期字段；未修改现有会员或交易数据。
 - 本次 47 项普通回归测试通过，Firestore 规则用例单独运行；公开产物仍为 18 个文件。新增人工开通查询、待审核反馈、账号切换与支持链接回归测试。
 - 部署仅涉及 Firestore Rules、Firebase Hosting 和 GitHub Pages，不启用结算账户或付费服务。
+
+
+### v205 发布结果
+
+- `npx firebase-tools deploy --only firestore:rules --project trd-journal-market` 成功。
+- `npx firebase-tools deploy --only hosting` 成功，正式站为 https://trd-journal-market.web.app 。
+- 部署后逐一核对 18 个线上运行文件与本地发布产物的 SHA-256；全部一致。正式首页在浏览器中加载成功。
+- 部署后 Cloud Billing 再次确认 `billingEnabled: false`，没有升级套餐。
+- Firestore 模拟器规则测试通过；人工开通流程的浏览器测试使用合成账号，没有创建真实订单或会员。
+- 后续维护以免费方案为准。v204 的 Blaze / webhook 配置步骤仅作为未启用方案的历史记录。

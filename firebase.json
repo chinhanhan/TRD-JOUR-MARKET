@@ -34,16 +34,5 @@
         ]
       }
     ]
-  },
-  "functions": {
-    "source": "functions",
-    "runtime": "nodejs22",
-    "ignore": [
-      "node_modules",
-      ".git",
-      "*.log",
-      "issue-code.cjs",
-      "migrate-profiles.cjs"
-    ]
   }
 }

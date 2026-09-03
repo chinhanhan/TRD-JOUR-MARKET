@@ -12,7 +12,7 @@ TRD Journey is an Apple-inspired trading journal and behavioral review operating
 
 ## SaaS Architecture
 - **Client**: Vanilla JS / HTML5 / CSS3 (Apple Glassmorphism / visionOS Bento)
-- **Backend / Cloud**: Firebase Auth, Cloud Firestore, Cloud Storage, Cloud Functions
+- **Backend / Cloud**: Firebase Auth, Cloud Firestore (Firebase Spark; no deployed Cloud Functions or Cloud Storage dependency)
 - **Payments**: Local & International Gateways (Debit Card, TNG, Online Banking)
 
 ## Public deployment files
@@ -33,8 +33,18 @@ repository configuration, and unlisted files stay outside the deployment.
 This change takes effect on each hosted site after that site is deployed. It does
 not delete original local files or remove files from Git history.
 
-## Maintenance and coordinated rollout
+## Free-plan operation (v205)
 
-See [the September 2026 maintenance record](docs/maintenance-2026-09-03.md) for
-validation, legacy local-data recovery requirements, and the backend/Stripe setup
-required before publishing this version. Do not publish the new frontend alone.
+The production deployment stays on Firebase Spark. Existing Stripe Payment Links
+and the TNG/DuitNow QR remain available; membership is activated manually after
+the owner verifies payment. No Cloud Functions, Secret Manager, billing account,
+or Stripe webhook is required. Existing activation codes are handled by support.
+
+See [free-plan operations](docs/free-plan-operations.md) for activation steps and
+[the maintenance record](docs/maintenance-2026-09-03.md) for validation and local
+backup recovery. `functions/` is retained as undeployed future code and test
+fixtures; it is deliberately absent from `firebase.json` and public assets.
+
+Spark has free usage limits; cloud services can become unavailable when their
+quota is exhausted. Offline records remain local. Stripe processing fees remain
+separate from Firebase hosting; no paid Firebase services are enabled.

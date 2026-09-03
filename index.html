@@ -6,9 +6,9 @@
     <title>TRD Journey — Trading Journal &amp; Performance Review</title>
     <meta name="description" content="Track trades, review execution discipline, and measure your performance with TRD Journey. Built for traders in Malaysia and Southeast Asia." />
     <link rel="manifest" href="manifest.json" />
-    <link rel="stylesheet" href="styles.css?v=204" />
-    <link rel="stylesheet" href="dock.css?v=204" />
-    <link rel="stylesheet" href="auth.css?v=204" />
+    <link rel="stylesheet" href="styles.css?v=205" />
+    <link rel="stylesheet" href="dock.css?v=205" />
+    <link rel="stylesheet" href="auth.css?v=205" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
   </head>
   <body>
@@ -153,12 +153,12 @@
 
           <details style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 14px; padding: 16px 20px; cursor: pointer;">
             <summary style="font-weight: 700; font-size: 15px; color: #ffffff;">💳 How does payment and cancellation work?</summary>
-            <p style="margin: 10px 0 0; font-size: 13.5px; color: #a1a1a6; line-height: 1.6;">We support both automated monthly subscription via Stripe (Visa, Mastercard, Apple Pay, Debit Cards) and Touch 'n Go / DuitNow QR. You can cancel your subscription at any time with one click in your account settings—no questions asked and no lock-in contracts.</p>
+            <p style="margin: 10px 0 0; font-size: 13.5px; color: #a1a1a6; line-height: 1.6;">We accept Stripe (Visa, Mastercard, Apple Pay, Debit Cards) and Touch 'n Go / DuitNow QR. Send your receipt to WhatsApp support after payment; Pro access is activated after manual verification. Contact support for renewal or cancellation assistance.</p>
           </details>
 
           <details style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 14px; padding: 16px 20px; cursor: pointer;">
             <summary style="font-weight: 700; font-size: 15px; color: #ffffff;">⚡ Why manual logging instead of broker API connection?</summary>
-            <p style="margin: 10px 0 0; font-size: 13.5px; color: #a1a1a6; line-height: 1.6;">Broker API connections often pose severe account credential security risks. Furthermore, professional hedge fund research shows that the physical act of logging a trade with Pre-Flight checks builds 80% higher psychological discipline than passive automatic syncing.</p>
+            <p style="margin: 10px 0 0; font-size: 13.5px; color: #a1a1a6; line-height: 1.6;">Manual logging keeps your pre-flight checks, trade rationale, and review in one workflow. Broker API integration is not currently available; CSV and JSON tools help you move your records.</p>
           </details>
 
           <details style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 14px; padding: 16px 20px; cursor: pointer;">
@@ -1961,7 +1961,7 @@
             </div>
           </div>
           <p style="margin: 0; font-size: 11.5px; color: #d1d1d6; line-height: 1.45; text-align: center;">
-            🌟 <em>"You have hit the 20-trade free capacity. Unlock PRO (only <strong>RM 0.60/day</strong>) to continue logging and find your profitable edge."</em>
+            🌟 <em>Free Starter includes 20 trade logs. Pro removes the trade-count limit and adds deeper review tools.</em>
           </p>
         </div>
 
@@ -2003,7 +2003,7 @@
               </tr>
               <tr>
                 <td class="feat-col">Sync & PDF Reports</td>
-                <td class="free-col">Local Cache Only</td>
+                <td class="free-col">Local Save + Cloud Sync</td>
                 <td class="pro-col">⭐ Instant Cloud Sync + Executive PDF Reports</td>
               </tr>
               <tr>
@@ -2075,7 +2075,7 @@
           </button>
           <div style="margin-top: 10px; font-size: 11px; color: #8e8e93; text-align: center; line-height: 1.4;">
             🔒 Powered by <strong>Stripe</strong> (Visa, Mastercard, Apple Pay, Debit Cards)<br>
-            <span style="color: #636366;">💡 Maybank/CIMB Debit cards: please enable online purchase. Cancel anytime.</span>
+            <span style="color: #636366;">After payment, send your receipt using the support button below. Pro access requires manual verification.</span>
           </div>
         </div>
 
@@ -2092,28 +2092,22 @@
 
             <p style="font-size: 12px; color: #a1a1a6; margin: 0; line-height: 1.4;">
               Open <strong>Touch 'n Go eWallet</strong> or <strong>MAE / CIMB App</strong> to scan.<br>
-              After transfer, click below to WhatsApp your receipt for instant PRO activation.
+              After transfer, send your receipt below. Pro access is activated after manual verification.
             </p>
           </div>
 
           <button class="auth-submit-btn" id="upgradeTngWhatsAppBtn" type="button" style="background: #0070ba; color: #fff;" onclick="window.TRDAuth.handleTngWhatsAppClick()">
             🔥 WhatsApp Receipt (RM 199 Founder Lifetime) →
           </button>
-          <p style="text-align: center; font-size: 11px; color: #8e8e93; margin-top: 8px;">Fast manual approval within 5 minutes.</p>
+          <p style="text-align: center; font-size: 11px; color: #8e8e93; margin-top: 8px;">Approval is manual. Support will confirm when your membership is active.</p>
         </div>
 
-        <!-- VIP Activation Key / Redeem Code -->
+        <!-- Membership approval runs manually on the free Firebase plan. -->
         <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed rgba(255, 255, 255, 0.12); text-align: center;">
-          <div id="redeemToggleRow" style="font-size: 12px; color: #a1a1a6;">
-            Have an activation code? <button type="button" onclick="window.TRDAuth.toggleRedeemBox()" style="background: none; border: none; color: #0a84ff; font-weight: 600; cursor: pointer; text-decoration: underline;">Redeem Key</button>
-          </div>
-          <div id="redeemInputBox" style="display: none; margin-top: 10px;">
-            <div style="display: flex; gap: 8px;">
-              <input type="text" id="redeemKeyInput" placeholder="e.g. TRD-PRO-VIP" style="flex: 1; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: #fff; padding: 10px 12px; font-size: 15px; text-transform: uppercase;" />
-              <button type="button" onclick="window.TRDAuth.handleRedeemKey()" style="background: #30d158; color: #000; font-weight: 700; border: none; border-radius: 8px; padding: 0 16px; font-size: 13px; cursor: pointer;">Activate</button>
-            </div>
-            <div id="redeemFeedbackMsg" style="font-size: 11px; margin-top: 6px; display: none;"></div>
-          </div>
+          <p style="font-size: 12px; color: #a1a1a6; line-height: 1.5;">Already paid or have an activation code? Send your receipt or code to support. Pro access starts after manual verification.</p>
+          <button class="auth-submit-btn" type="button" onclick="window.TRDAuth.handleActivationSupport()">Contact support to activate</button>
+          <button type="button" onclick="window.TRDAuth.refreshActivation()" style="margin-top: 10px; background: none; border: none; color: #0a84ff; cursor: pointer; text-decoration: underline;">Check activation status</button>
+          <div id="activationFeedbackMsg" role="status" aria-live="polite" style="font-size: 12px; margin-top: 8px; display: none;"></div>
         </div>
       </div>
     </div>
@@ -2126,8 +2120,8 @@
       </div>
     </div>
 
-    <script src="stateSyncCore.js?v=204"></script>
-    <script src="backupCore.js?v=204"></script>
+    <script src="stateSyncCore.js?v=205"></script>
+    <script src="backupCore.js?v=205"></script>
 
     <!-- Firebase Cloud SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -2135,15 +2129,15 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics-compat.js"></script>
-    <script src="firebaseConfig.js?v=204"></script>
-    <script src="auth.js?v=204"></script>
-    <script src="cloudSync.js?v=204"></script>
+    <script src="firebaseConfig.js?v=205"></script>
+    <script src="auth.js?v=205"></script>
+    <script src="cloudSync.js?v=205"></script>
 
-    <script defer src="audioEngine.js?v=204"></script>
-    <script defer src="dataEngine.js?v=204"></script>
-    <script defer src="dock.js?v=204"></script>
-    <script type="module" src="gallery.js?v=204"></script>
-    <script defer src="app.js?v=204"></script>
+    <script defer src="audioEngine.js?v=205"></script>
+    <script defer src="dataEngine.js?v=205"></script>
+    <script defer src="dock.js?v=205"></script>
+    <script type="module" src="gallery.js?v=205"></script>
+    <script defer src="app.js?v=205"></script>
     <script defer src="longGameLogic.js"></script>
   </body>
 </html>

@@ -191,9 +191,9 @@
       await window.TRDLocalStore.cacheProfile?.(user.uid, AuthState.profile).catch(error => console.warn('Profile cache failed:', error));
       const url = new URL(window.location.href);
       if (url.searchParams.has('session_id') || url.searchParams.get('upgrade') === 'success' || url.searchParams.get('payment') === 'success') {
-        // A redirect is not proof of payment. Only a verified server event can
+        // A redirect is not proof of payment. Only an administrator can
         // update subscription; the profile listener displays it when confirmed.
-        window.toast?.(AuthState.subscription.plan === 'pro' ? 'Your Pro subscription is active.' : 'Payment confirmation is pending. Your plan will update after verification.', 'info');
+        window.toast?.(AuthState.subscription.plan === 'pro' ? 'Your Pro subscription is active.' : 'Payment needs manual verification. Open Upgrade and send your receipt to support; your plan will update after approval.', 'info');
         ['session_id', 'upgrade', 'payment'].forEach(key => url.searchParams.delete(key));
         window.history.replaceState({}, document.title, url.pathname + url.search + url.hash);
         localStorage.removeItem('trd_pending_checkout_tier');
@@ -316,7 +316,7 @@
       const user = this.getUser();
       const email = user ? user.email : 'Pro Member';
       const msg = encodeURIComponent(`Hi TRD Journey, I want to renew my TRD Journey Pro membership via Touch 'n Go / DuitNow QR.\n\nMy Account Email: ${email}`);
-      window.open(`https://wa.me/601126633131?text=${msg}`, '_blank');
+      window.open(`https://wa.me/601126633131?text=${msg}`, '_blank', 'noopener,noreferrer');
     },
 
     renderAnonymousUI() {
@@ -529,8 +529,8 @@
       else if (tier === 'quarterly') planText = "Quarterly Pro Plan (RM49/3-months)";
       else if (tier === 'yearly') planText = "Annual Pro Plan (RM159/year - Save 30%)";
 
-      const msg = encodeURIComponent(`Hi TRD Journey, I have transferred via Touch 'n Go / DuitNow for the ${planText}.\nAccount Email: ${email}`);
-      window.open(`https://wa.me/601126633131?text=${msg}`, '_blank');
+      const msg = encodeURIComponent(`Hi TRD Journey, I have transferred via Touch 'n Go / DuitNow for the ${planText}.\nAccount Email: ${email}\nUser ID: ${user?.uid || 'Please sign in'}`);
+      window.open(`https://wa.me/601126633131?text=${msg}`, '_blank', 'noopener,noreferrer');
     },
 
     togglePasswordVisibility() {
@@ -546,48 +546,38 @@
       }
     },
 
-    toggleRedeemBox() {
-      const box = document.getElementById('redeemInputBox');
-      if (box) {
-        box.style.display = box.style.display === 'none' ? 'block' : 'none';
-      }
+    handleActivationSupport() {
+      const user = this.getUser();
+      if (!user) { this.closeUpgradeModal(); this.openModal('signin'); return; }
+      const tier = AuthState.selectedTier || 'lifetime';
+      const message = `Hi TRD Journey, please help verify my payment or existing activation code.\nAccount Email: ${user.email || ''}\nUser ID: ${user.uid}\nSelected Plan: ${tier}\nI will attach my receipt or code here.`;
+      window.open(`https://wa.me/601126633131?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
     },
 
-    async handleRedeemKey() {
-      const input = document.getElementById('redeemKeyInput');
-      const feedback = document.getElementById('redeemFeedbackMsg');
-      if (!input || !feedback) return;
+    async refreshActivation() {
+      const feedback = document.getElementById('activationFeedbackMsg');
       const user = this.getUser();
-      const code = input.value.trim().toUpperCase();
+      if (!feedback) return;
       feedback.style.display = 'block';
       feedback.style.color = '#ff9f0a';
-      if (!user || !code) {
-        feedback.textContent = !user ? 'Please sign in first.' : 'Enter your activation code.';
-        return;
-      }
-      if (this.redeeming) return;
-      this.redeeming = true;
+      if (!user) { feedback.textContent = 'Please sign in first.'; return; }
+      if (this.refreshingActivation) return;
+      const revision = authRevision;
+      this.refreshingActivation = true;
       try {
-        feedback.textContent = 'Verifying your activation code...';
-        const token = await user.getIdToken();
-        const projectId = window.fbApp.options.projectId;
-        const response = await fetch(`https://us-central1-${projectId}.cloudfunctions.net/redeemKey`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ data: { code } })
-        });
-        const result = await response.json();
-        if (!response.ok || result.error) throw new Error(result.error?.message || 'Verification service unavailable. Please contact support.');
-        if (this.getUser()?.uid !== user.uid) return;
+        feedback.textContent = 'Checking your membership...';
         await this.loadUserProfile(user, { forceRefresh: true });
-        if (this.getUser()?.uid !== user.uid) return;
+        if (revision !== authRevision) return;
         this.renderAuthenticatedUI(user);
-        if (AuthState.subscription.plan === 'pro') window.TRDCloudSync?.schedulePush();
-        feedback.style.color = '#30d158';
-        feedback.textContent = result.result?.alreadyRedeemed ? 'This code is already applied to your account.' : 'Activation confirmed. Your plan has been updated.';
+        const active = AuthState.subscription.plan === 'pro';
+        if (active) window.TRDCloudSync?.schedulePush();
+        feedback.style.color = active ? '#30d158' : '#ff9f0a';
+        feedback.textContent = active ? 'Your Pro membership is active.' : 'Activation is pending. Please send your receipt or code to support for manual verification.';
       } catch (error) {
+        if (revision !== authRevision) return;
         feedback.style.color = '#ff453a';
-        feedback.textContent = error.message || 'Activation could not be verified. Please contact support.';
-      } finally { this.redeeming = false; }
+        feedback.textContent = 'Unable to check your membership. Please reconnect and try again.';
+      } finally { this.refreshingActivation = false; }
     },
 
     handleUpgradeClick() {
@@ -618,7 +608,7 @@
 
         const msg = encodeURIComponent(`Hi Han! I would like to upgrade to TRD Journey: ${planText}.\nPayment Method: Card / Apple Pay / Online Banking / TNG\nAccount Email: ${user.email || 'Trader'}\nUser ID: ${user.uid || ''}\nPlease send me the payment link or VIP key!`);
         
-        window.open(`https://wa.me/601126633131?text=${msg}`, '_blank');
+        window.open(`https://wa.me/601126633131?text=${msg}`, '_blank', 'noopener,noreferrer');
         
         // Also seamlessly toggle to Touch 'n Go & QR section inside modal
         this.switchUpgradeTab('tng');

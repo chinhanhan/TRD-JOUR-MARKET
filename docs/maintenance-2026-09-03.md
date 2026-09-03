@@ -1,5 +1,7 @@
 # 2026-09-03 维护记录与发布准备
 
+> **最新决策：用户要求保持完全免费的 Firebase 方案。v205 改用 Spark + 人工确认收款开通，取代下文 v204 的付费后端发布计划。Blaze、Functions、Stripe webhook 不再是当前上线前提。详见 [免费方案运营](free-plan-operations.md)。下文保留早期检查过程供追溯。
+
 本轮改动整理为 `codex/release-v204` 发布候选版本。生产发布因下述 Firebase
 计费与支付配置阻碍暂停，不能将候选版本视为已上线版本。工作区原有的
 `.firebase/hosting..cache` 修改未纳入本轮修复。
@@ -129,3 +131,14 @@ node functions/migrate-profiles.cjs --apply
 
 下一步由项目所有者在 Firebase 控制台启用 Blaze 并配置安全的 Stripe 服务端凭据与价目映射，
 随后依次完成云函数、webhook 验证、旧订阅迁移、新规则、前端的协调发布。
+
+
+## v205 免费方案发布检查
+
+- 用户明确不接受 Firebase 付费方案，因此保留 Spark；从 `firebase.json` 移除 Functions 部署配置，生产前端没有云函数请求。
+- 原有 Stripe Payment Links、TNG/DuitNow QR 保留。付款页、常见问题及回跳提示明确说明需人工确认收款，去除即时开通和五分钟审批承诺。
+- 原兑换入口替换为联系支持验证收据 / 旧兑换码及查询开通状态。账号 UID 随用户主动点击后的 WhatsApp 草稿传递；没有自动发送消息。
+- Pro 仍仅由管理员修改 Firestore 订阅资料，客户端不能自行升级；开通后实时资料监听和主动查询会刷新权限。云函数代码留作未部署的备选实现。
+- 生产资料只读检查：1 个已有 Pro 资料，无待补充的到期时间字段，无无效到期字段；未修改现有会员或交易数据。
+- 本次 47 项普通回归测试通过，Firestore 规则用例单独运行；公开产物仍为 18 个文件。新增人工开通查询、待审核反馈、账号切换与支持链接回归测试。
+- 部署仅涉及 Firestore Rules、Firebase Hosting 和 GitHub Pages，不启用结算账户或付费服务。

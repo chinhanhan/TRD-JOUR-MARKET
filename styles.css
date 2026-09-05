@@ -1651,6 +1651,106 @@ h3 {
   text-overflow: ellipsis;
 }
 
+.weekly-action-panel {
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 88% 8%, rgba(52, 199, 89, 0.13), transparent 32%),
+    var(--surface);
+}
+
+.weekly-action-head {
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.weekly-sample-badge {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.58);
+  font-size: 0.75rem;
+  font-weight: 720;
+}
+
+.weekly-sample-badge[data-confidence="insufficient"] {
+  color: #9a6700;
+  background: rgba(255, 204, 0, 0.12);
+  border-color: rgba(154, 103, 0, 0.18);
+}
+
+.weekly-action-focus {
+  margin-top: 16px;
+  padding: clamp(18px, 3vw, 28px);
+  border: 1px solid rgba(52, 199, 89, 0.2);
+  border-radius: 20px;
+  background: rgba(52, 199, 89, 0.075);
+  display: grid;
+  gap: 8px;
+}
+
+.weekly-action-focus span,
+.weekly-evidence-grid span {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 720;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.weekly-action-focus strong {
+  font-size: clamp(1.35rem, 3vw, 2rem);
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+}
+
+.weekly-action-focus p,
+.weekly-action-note,
+.weekly-action-empty {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.weekly-evidence-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.weekly-evidence-grid article {
+  min-width: 0;
+  padding: 14px 15px;
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  display: grid;
+  gap: 7px;
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.weekly-evidence-grid strong {
+  overflow: hidden;
+  font-size: 1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.weekly-evidence-grid small {
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.weekly-action-note {
+  margin: 12px 2px 0;
+  font-size: 0.75rem;
+}
+
+[data-theme="dark"] .weekly-sample-badge,
+[data-theme="dark"] .weekly-evidence-grid article {
+  background: rgba(255, 255, 255, 0.035);
+}
+
 input,
 select,
 textarea {
@@ -2739,6 +2839,18 @@ select option {
   .playbook-grid,
   .form-row,
   .checklist {
+    grid-template-columns: 1fr;
+  }
+
+  .weekly-action-head {
+    display: grid;
+  }
+
+  .weekly-sample-badge {
+    width: fit-content;
+  }
+
+  .weekly-evidence-grid {
     grid-template-columns: 1fr;
   }
 

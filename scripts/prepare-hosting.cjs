@@ -18,6 +18,7 @@ const publicFiles = [
   'stateSyncCore.js',
   'backupCore.js',
   'journalFilterCore.js',
+  'weeklyReviewCore.js',
   'firebaseConfig.js',
   'audioEngine.js',
   'dataEngine.js',

@@ -1747,12 +1747,45 @@ function renderInsights() {
   ];
   if (openTrades().length) cards.unshift([t("openTrades"), String(openTrades().length), t("reviewPrompt"), ""]);
   document.getElementById("summaryCards").innerHTML = cards.map(([title, value, note, key]) => insightCard(title, value, note, key)).join("");
+  renderWeeklyAction(weekTrades, weekStart, weekEnd);
   document.getElementById("statusGrid").innerHTML = [
     ["Plan", state.dailyPlans?.[todayISO()] ? "Ready" : "Missing", "Pre-market plan"],
     ["Open", `${openTrades(byDate(todayISO())).length}`, "In-progress trades"],
     ["Closed", `${closedByDate(todayISO()).length}`, "Completed today"],
     ["Review", state.dailyReviews?.[todayISO()] ? "Done" : "Pending", "Daily close"],
   ].map(([title, value, note]) => `<article class="status-card"><span>${title}</span><strong>${value}</strong><small>${note}</small></article>`).join("");
+}
+
+function renderWeeklyAction(weekTrades, weekStart, weekEnd) {
+  const container = document.getElementById("weeklyActionContent");
+  const badge = document.getElementById("weeklyActionBadge");
+  if (!container || !badge) return;
+  if (!window.TRDWeeklyReview?.analyze) {
+    badge.textContent = "Unavailable";
+    container.innerHTML = '<p class="weekly-action-empty">Weekly coaching is temporarily unavailable.</p>';
+    return;
+  }
+
+  const review = window.TRDWeeklyReview.analyze(weekTrades);
+  const confidenceLabels = { insufficient: "Need more data", early: "Early signal", developing: "Developing signal" };
+  badge.textContent = `${review.sampleSize} closed · ${confidenceLabels[review.confidence]}`;
+  badge.dataset.confidence = review.confidence;
+  const evidence = [
+    ["Costliest mistake", review.topMistake?.name || "None tagged", review.topMistake ? `${formatR(-review.topMistake.costR)} associated · ${review.topMistake.count} trade${review.topMistake.count === 1 ? "" : "s"}` : "Tag mistakes after each close"],
+    ["Setup signal", review.bestSetup?.name || "Need 2 matching trades", review.bestSetup ? `${formatR(review.bestSetup.expectancy)} average · ${review.bestSetup.count} trades` : "No repeated setup yet"],
+    ["Session signal", review.bestSession?.name || "Need 2 matching trades", review.bestSession ? `${formatR(review.bestSession.expectancy)} average · ${review.bestSession.count} trades` : "No repeated session yet"]
+  ];
+
+  container.innerHTML = `
+    <div class="weekly-action-focus">
+      <span>Next-week focus</span>
+      <strong>${safe(review.focus.title)}</strong>
+      <p>${safe(review.focus.detail)}</p>
+    </div>
+    <div class="weekly-evidence-grid">
+      ${evidence.map(([label, value, note]) => `<article><span>${safe(label)}</span><strong title="${safe(value)}">${safe(value)}</strong><small>${safe(note)}</small></article>`).join("")}
+    </div>
+    <p class="weekly-action-note">Based on the current account's closed trades for ${safe(formatPeriodString(weekStart, weekEnd))}. Mistake cost shows observed association, not proof of cause.</p>`;
 }
 
 function summaryCardsFor(trades, start, end) {

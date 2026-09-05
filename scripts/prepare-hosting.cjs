@@ -17,6 +17,7 @@ const publicFiles = [
   'cloudSync.js',
   'stateSyncCore.js',
   'backupCore.js',
+  'journalFilterCore.js',
   'firebaseConfig.js',
   'audioEngine.js',
   'dataEngine.js',

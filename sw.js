@@ -1,7 +1,7 @@
-const CACHE_NAME = 'trd-journey-v205';
+const CACHE_NAME = 'trd-journey-v206';
 const ASSETS = [
   './', './index.html', './styles.css', './dock.css', './auth.css',
-  './firebaseConfig.js', './auth.js', './cloudSync.js', './stateSyncCore.js', './backupCore.js',
+  './firebaseConfig.js', './auth.js', './cloudSync.js', './stateSyncCore.js', './backupCore.js', './journalFilterCore.js',
   './audioEngine.js', './dataEngine.js', './dock.js', './gallery.js', './app.js',
   './longGameLogic.js', './manifest.json', './assets/tng_duitnow_qr.png'
 ];

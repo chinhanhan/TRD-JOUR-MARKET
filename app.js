@@ -1434,6 +1434,13 @@ function populateSetupOptions() {
     filter.innerHTML = `<option value="All">All setups</option>${state.preferences.setups.map((setup) => `<option>${safe(setup)}</option>`).join("")}`;
     filter.value = ["All", ...state.preferences.setups].includes(filterValue) ? filterValue : "All";
   }
+  const emotionFilter = document.getElementById("journalEmotionFilter");
+  if (emotionFilter) {
+    const current = emotionFilter.value;
+    const emotions = [...new Set(sopTrades(state.activeSopId || activeSop()?.id).map(trade => trade.emotion).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    emotionFilter.innerHTML = `<option value="All">All emotions</option>${emotions.map(emotion => `<option>${safe(emotion)}</option>`).join("")}`;
+    emotionFilter.value = emotions.includes(current) ? current : "All";
+  }
 }
 
 function populateSopControls() {
@@ -1464,6 +1471,12 @@ function populateSopControls() {
   if (filter) {
     filter.innerHTML = accountOptions;
     filter.value = state.activeAccountId || accounts[0]?.id || "";
+  }
+  const journalAccountFilter = document.getElementById("journalAccountFilter");
+  if (journalAccountFilter) {
+    const current = journalAccountFilter.value;
+    journalAccountFilter.innerHTML = `<option value="Current">Current account</option><option value="All">All accounts</option>${accounts.map(account => `<option value="${safe(account.id)}">${safe(account.name)}</option>`).join("")}`;
+    journalAccountFilter.value = ["Current", "All", ...accounts.map(account => account.id)].includes(current) ? current : "Current";
   }
   if (tradeAccountSelect) {
     tradeAccountSelect.innerHTML = accountOptions;
@@ -1796,22 +1809,66 @@ function insightCard(title, value, note, insightKey = "") {
   return `<article class="insight-card${cardKlass}"${clickAttr}><span>${safe(title)}</span><strong class="value ${klass}${valKlass}">${safe(value)}</strong><small>${safe(note)}</small></article>`;
 }
 
-function renderJournal() {
-  const setupFilter = document.getElementById("setupFilter")?.value || "All";
-  const ruleFilter = document.getElementById("ruleFilterSelect")?.value || "All";
-  const scoped = visibleTrades();
-  
-  let filtered = setupFilter === "All" ? scoped : scoped.filter((trade) => trade.setup === setupFilter);
-  if (ruleFilter !== "All") {
-    filtered = filtered.filter((trade) => getTradeRuleStatus(trade) === ruleFilter);
+function journalFilters() {
+  const value = id => document.getElementById(id)?.value || "";
+  return {
+    query: value("journalSearchInput"),
+    status: value("journalStatusFilter") || "All",
+    dateFrom: value("journalDateFrom"),
+    dateTo: value("journalDateTo"),
+    session: value("journalSessionFilter") || "All",
+    outcome: value("journalOutcomeFilter") || "All",
+    grade: value("journalGradeFilter") || "All",
+    emotion: value("journalEmotionFilter") || "All",
+    account: value("journalAccountFilter") || "Current",
+    setup: value("setupFilter") || "All",
+    rule: value("ruleFilterSelect") || "All"
+  };
+}
+
+function journalFilterIsActive(filters = journalFilters()) {
+  return Boolean(filters.query.trim() || filters.dateFrom || filters.dateTo ||
+    [filters.status, filters.session, filters.outcome, filters.grade, filters.emotion, filters.setup, filters.rule].some(value => value && value !== "All") || !["", "Current"].includes(filters.account));
+}
+
+function journalTradeScope(filters = journalFilters()) {
+  if (filters.account === "Current") return visibleTrades();
+  return sopTrades(state.activeSopId || activeSop()?.id);
+}
+
+function filteredJournalTrades(filters = journalFilters()) {
+  const scoped = journalTradeScope(filters);
+  return window.TRDJournalFilter?.filterTrades(scoped, filters) || scoped;
+}
+
+function updateJournalFilterSummary(filtered, total, filters) {
+  const activeCount = [filters.query.trim(), filters.dateFrom, filters.dateTo,
+    ...[filters.status, filters.session, filters.outcome, filters.grade, filters.emotion, filters.setup, filters.rule].filter(value => value && value !== "All"),
+    (!["", "Current"].includes(filters.account) ? filters.account : "")].filter(Boolean).length;
+  const invalidDates = Boolean(filters.dateFrom && filters.dateTo && filters.dateFrom > filters.dateTo);
+  const count = document.getElementById("journalFilterCount");
+  if (count) {
+    count.textContent = invalidDates ? "Check date range" : (activeCount ? `${filtered.length} of ${total} records` : `${total} record${total === 1 ? "" : "s"}`);
+    count.classList.toggle("invalid", invalidDates);
   }
+  const badge = document.getElementById("journalActiveFilterBadge");
+  if (badge) { badge.hidden = activeCount === 0; badge.textContent = String(activeCount); }
+  const clear = document.getElementById("journalClearFiltersBtn");
+  if (clear) clear.disabled = activeCount === 0;
+}
+
+function renderJournal() {
+  const filters = journalFilters();
+  const scoped = journalTradeScope(filters);
+  const filtered = window.TRDJournalFilter?.filterTrades(scoped, filters) || scoped;
+  updateJournalFilterSummary(filtered, scoped.length, filters);
 
   const open = openTrades(filtered).slice().sort((a, b) => (b.date || "").localeCompare(a.date || ""));
   const closed = closedTrades(filtered).slice().sort((a, b) => (b.closedAt || b.date).localeCompare(a.closedAt || a.date));
-  
-  document.getElementById("openTradeCards").innerHTML = open.length ? open.map(tradeCard).join("") : emptyState(t("noOpenTrades"));
-  document.getElementById("tradeRows").innerHTML = closed.map(tradeRow).join("");
-  document.getElementById("mobileTradeCards").innerHTML = closed.map(tradeCard).join("");
+  const active = journalFilterIsActive(filters);
+  document.getElementById("openTradeCards").innerHTML = open.length ? open.map(tradeCard).join("") : emptyState(active ? "No matching open trades." : t("noOpenTrades"));
+  document.getElementById("tradeRows").innerHTML = closed.length ? closed.map(tradeRow).join("") : `<tr><td colspan="8"><div class="empty-state">${active ? "No closed trades match these filters." : "No closed trades yet."}</div></td></tr>`;
+  document.getElementById("mobileTradeCards").innerHTML = closed.length ? closed.map(tradeCard).join("") : emptyState(active ? "No closed trades match these filters." : "No closed trades yet.");
 }
 
 function renderSopJourney() {
@@ -1924,13 +1981,17 @@ function renderSopTimeline() {
   const target = document.getElementById("sopTimeline");
   if (!target) return;
   const zeroState = document.getElementById("timelineZeroState");
-  const groups = timelineGroups(visibleTrades());
+  const filtered = filteredJournalTrades();
+  const groups = timelineGroups(filtered);
   const days = Object.keys(groups);
-  const hasDemo = (state.trades || []).some(t => t.isDemo);
+  const hasDemo = filtered.some(t => t.isDemo);
 
   if (!days.length) {
     target.style.display = "none";
     if (zeroState) zeroState.style.display = "flex";
+    const active = journalFilterIsActive();
+    setText("timelineZeroTitle", active ? "No matching trades" : "Empty Journal Trail");
+    setText("timelineZeroMessage", active ? "Adjust or clear the search filters to see more records." : 'Log a trade using the "Log Trade" button to start your timeline.');
   } else {
     target.style.display = "grid";
     if (zeroState) zeroState.style.display = "none";
@@ -4294,8 +4355,25 @@ document.querySelector('#tradeForm [name="openTime"]')?.addEventListener("change
   }
 });
 document.getElementById("cancelEditBtn")?.addEventListener("click", resetTradeForm);
-document.getElementById("setupFilter")?.addEventListener("change", renderJournal);
-document.getElementById("ruleFilterSelect")?.addEventListener("change", renderJournal);
+function renderFilteredJournalViews() {
+  renderJournal();
+  renderSopTimeline();
+}
+let journalSearchTimer = null;
+document.getElementById("journalSearchInput")?.addEventListener("input", () => {
+  clearTimeout(journalSearchTimer);
+  journalSearchTimer = setTimeout(renderFilteredJournalViews, 120);
+});
+["setupFilter", "ruleFilterSelect", "journalStatusFilter", "journalDateFrom", "journalDateTo", "journalSessionFilter", "journalOutcomeFilter", "journalGradeFilter", "journalEmotionFilter", "journalAccountFilter"]
+  .forEach(id => document.getElementById(id)?.addEventListener("change", renderFilteredJournalViews));
+document.getElementById("journalClearFiltersBtn")?.addEventListener("click", () => {
+  ["journalSearchInput", "journalDateFrom", "journalDateTo"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+  ["setupFilter", "ruleFilterSelect", "journalStatusFilter", "journalSessionFilter", "journalOutcomeFilter", "journalGradeFilter", "journalEmotionFilter"]
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = "All"; });
+  const account = document.getElementById("journalAccountFilter"); if (account) account.value = "Current";
+  renderFilteredJournalViews();
+  document.getElementById("journalSearchInput")?.focus();
+});
 document.getElementById("activeSopSelect")?.addEventListener("change", (event) => {
   state.activeSopId = event.target.value;
   state.activeAccountId = accountsForSop(state.activeSopId)[0]?.id || "";

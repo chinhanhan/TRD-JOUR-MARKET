@@ -10,7 +10,7 @@ function uuidv4() {
 }
 
 /**
- * Saves the global state and alerts the user if it fails.
+ * Saves the global state and reports a non-blocking error if it fails.
  * @returns {Promise<boolean>} True if save was successful.
  */
 async function safeSaveLongGame() {
@@ -18,11 +18,7 @@ async function safeSaveLongGame() {
   const success = await saveState();
   if (generation !== localGeneration) return false;
   if (!success) {
-    if (typeof toast === 'function') {
-      toast("Your entry could not be saved. Please retry.", "error");
-    } else {
-      alert("Your entry could not be saved. Please retry.");
-    }
+    window.toast?.("Your entry could not be saved. Please retry.", "error");
   }
   return success;
 }

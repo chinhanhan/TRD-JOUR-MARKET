@@ -743,7 +743,6 @@
       if (!isLifetime && AuthState.subscription.plan === 'pro' && AuthState.subscription.validUntil) {
         const expiryTime = new Date(AuthState.subscription.validUntil).getTime();
         if (Date.now() > expiryTime) {
-          console.log("⏰ Pro subscription expired. Downgrading to Free tier.");
           AuthState.subscription.plan = 'free';
           AuthState.subscription.status = 'expired';
           AuthState.subscription.limit = 20;

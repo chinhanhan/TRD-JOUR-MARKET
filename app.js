@@ -2616,7 +2616,7 @@ async function deleteSop(id) {
   const sop = state.sops.find((s) => s.id === id);
   if (!sop) return;
   if (state.sops.length <= 1) {
-    alert("You must have at least one SOP. You cannot delete the last remaining SOP.");
+    toast("You must keep at least one SOP.", "warning");
     return;
   }
   const tradeCount = state.trades.filter((t) => t.sopId === id).length;
@@ -5295,115 +5295,6 @@ function initCardSpotlightHover() {
   }, true);
 }
 
-function initMacDock() {
-  console.log("initMacDock: Initializing macOS smooth dock...");
-  const dock = document.querySelector(".ios-dock");
-  if (!dock) {
-    console.warn("initMacDock: .ios-dock not found!");
-    return;
-  }
-  const items = dock.querySelectorAll(".dock-item");
-  console.log(`initMacDock: Found ${items.length} dock items.`);
-  
-  const baseSize = 58;
-  const magnification = 80;
-  const distance = 150;
-  
-  let animationFrameId = null;
-  let targetWidths = Array(items.length).fill(baseSize);
-  let currentWidths = Array(items.length).fill(baseSize);
-  let isHovered = false;
-
-  const loop = () => {
-    let needsUpdate = false;
-    items.forEach((item, index) => {
-      // Lerp for smooth spring-like animation to avoid jitter
-      currentWidths[index] += (targetWidths[index] - currentWidths[index]) * 0.25;
-      
-      if (Math.abs(targetWidths[index] - currentWidths[index]) > 0.1) {
-        needsUpdate = true;
-      } else {
-        currentWidths[index] = targetWidths[index]; // Snap
-      }
-
-      item.style.width = `${currentWidths[index]}px`;
-      item.style.height = `${currentWidths[index]}px`;
-      
-      const icon = item.querySelector(".dock-icon");
-      if (icon) {
-        const targetIconSize = 24 + ((currentWidths[index] - baseSize) / (magnification - baseSize)) * 8;
-        icon.style.fontSize = `${targetIconSize}px`;
-      }
-    });
-
-    if (needsUpdate && isHovered) {
-      animationFrameId = requestAnimationFrame(loop);
-    } else {
-      animationFrameId = null;
-    }
-  };
-  
-  dock.addEventListener("mouseenter", () => {
-    isHovered = true;
-    items.forEach(item => {
-      item.classList.remove("resetting");
-      const icon = item.querySelector(".dock-icon");
-      if (icon) icon.classList.remove("resetting");
-    });
-    
-    // Jump to current bounds in case it was resetting via CSS
-    items.forEach((item, i) => {
-      const rect = item.getBoundingClientRect();
-      currentWidths[i] = rect.width;
-      targetWidths[i] = rect.width;
-    });
-    
-    if (!animationFrameId) animationFrameId = requestAnimationFrame(loop);
-  });
-  
-  dock.addEventListener("mousemove", (e) => {
-    const mouseX = e.clientX;
-    
-    items.forEach((item, index) => {
-      const rect = item.getBoundingClientRect();
-      const itemCenterX = rect.left + rect.width / 2;
-      const dist = Math.abs(mouseX - itemCenterX);
-      
-      if (dist < distance) {
-        // React bits linear mapping
-        const progress = 1 - (dist / distance);
-        targetWidths[index] = baseSize + (magnification - baseSize) * progress;
-      } else {
-        targetWidths[index] = baseSize;
-      }
-    });
-    
-    if (!animationFrameId && isHovered) {
-      animationFrameId = requestAnimationFrame(loop);
-    }
-  });
-  
-  dock.addEventListener("mouseleave", () => {
-    isHovered = false;
-    if (animationFrameId) {
-      cancelAnimationFrame(animationFrameId);
-      animationFrameId = null;
-    }
-    items.forEach((item, index) => {
-      item.classList.add("resetting");
-      item.style.width = "";
-      item.style.height = "";
-      const icon = item.querySelector(".dock-icon");
-      if (icon) {
-        icon.classList.add("resetting");
-        icon.style.fontSize = "";
-      }
-      targetWidths[index] = baseSize;
-      currentWidths[index] = baseSize;
-    });
-  });
-}
-
 function initCalendarHover() {
   const grid = document.getElementById("calendarGrid");
   if (!grid) return;
@@ -6378,8 +6269,6 @@ function initLayoutListeners() {
     }
   });
 
-  console.log("initLayoutListeners: Initializing click and layout listeners...");
-  
   // Carousel range sliders dynamic text updates
   document.querySelector('[name="carouselDragSensitivity"]')?.addEventListener("input", (e) => {
     const val = document.getElementById("carouselDragSensVal");
@@ -6446,21 +6335,17 @@ function initLayoutListeners() {
 
 async function initApp() {
   try {
-    console.log("initApp: Starting application initialization...");
     state = await loadState();
     window.state = state;
-    console.log("initApp: State loaded successfully");
     observedState = structuredClone(state);
     await saveState({ skipCloud: true }); // Persist this guest partition before auth selects a user.
     renderAll();
-    console.log("initApp: Main rendering complete");
     resetTradeForm();
     
     // Boot up the main app (overview) so the DOM is laid out behind the glass
     openModule("overview");
     // Immediately overlay the 3D Welcome Launcher
     openModule("landing-gallery");
-    console.log("initApp: Opened overview behind landing gallery overlay");
     
     // Phase 5 & 6 Initializations
     if (window.initCSS3DCarousel) {
@@ -6476,7 +6361,6 @@ async function initApp() {
     // dock.js owns the current Dock; the obsolete .ios-dock initializer is unused.
     initRewardListeners();
     initLayoutListeners();
-    console.log("initApp: Listeners and modules initialized successfully");
     
     updateStorageEstimate();
     updateSyncStatus();
@@ -6509,7 +6393,7 @@ if ("serviceWorker" in navigator) {
             }
           });
         });
-      }).catch((err) => console.log("SW failed", err));
+      }).catch((err) => console.warn("Service worker registration failed:", err));
       
       navigator.serviceWorker.addEventListener("controllerchange", () => {
         if (updateReloadRequested) window.location.reload();
@@ -6517,7 +6401,7 @@ if ("serviceWorker" in navigator) {
     }
   } catch (err) {
     console.error("Initialization failed:", err);
-    alert("Initialization Error:\n" + err.message + "\n\nStack:\n" + err.stack);
+    toast("TRD Journey could not start safely. Refresh the page or restore a backup if the problem continues.", "error");
   }
 }
 

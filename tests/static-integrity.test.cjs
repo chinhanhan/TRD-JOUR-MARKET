@@ -55,3 +55,14 @@ test('critical persistence and R rules remain intact', () => {
   assert.match(app.match(/async function deleteSop\(.*?\n\}/s)?.[0] || '', /preferences\.setups/);
   assert.doesNotMatch(read('cloudSync.js'), /\balert\s*\(/);
 });
+
+test('public runtime avoids blocking alerts and debug logs', () => {
+  const prepare = read('scripts/prepare-hosting.cjs');
+  const publicBlock = prepare.match(/const publicFiles = \[(.*?)\];/s)?.[1] || '';
+  const scripts = [...publicBlock.matchAll(/['"]([^'"]+\.js)['"]/g)].map(match => match[1]);
+  for (const file of scripts) {
+    const source = read(file);
+    assert.doesNotMatch(source, /\balert\s*\(/, `${file} contains a blocking alert`);
+    assert.doesNotMatch(source, /console\.log\s*\(/, `${file} contains a production debug log`);
+  }
+});

@@ -21,7 +21,6 @@ if (typeof firebase !== 'undefined') {
   if (typeof firebase.analytics === 'function') {
     window.fbAnalytics = firebase.analytics();
   }
-  console.log("⚡ [TRD Cloud] Firebase Services initialized successfully.");
 } else {
   console.warn("⚠️ [TRD Cloud] Firebase SDK not loaded yet.");
 }

@@ -69,5 +69,27 @@
     return (Array.isArray(trades) ? trades : []).filter(trade => matches(trade, filters));
   }
 
-  return { fold, recordDate, searchableText, ruleStatus, resultStatus, matches, filterTrades };
+  function tradeR(trade) {
+    const risk = Number(trade?.risk);
+    const pnl = Number(trade?.pnl);
+    return Number.isFinite(risk) && risk > 0 && Number.isFinite(pnl) ? pnl / risk : 0;
+  }
+
+  function chronology(trade) {
+    return String(trade?.closeTime || trade?.closedAt || trade?.date || '');
+  }
+
+  function compareNewest(a, b) {
+    return chronology(b).localeCompare(chronology(a)) || String(b?.id || '').localeCompare(String(a?.id || ''));
+  }
+
+  function sortTrades(trades, order = 'newest') {
+    const result = Array.isArray(trades) ? trades.slice() : [];
+    if (order === 'oldest') return result.sort((a, b) => -compareNewest(a, b));
+    if (order === 'bestR') return result.sort((a, b) => tradeR(b) - tradeR(a) || compareNewest(a, b));
+    if (order === 'worstR') return result.sort((a, b) => tradeR(a) - tradeR(b) || compareNewest(a, b));
+    return result.sort(compareNewest);
+  }
+
+  return { fold, recordDate, searchableText, ruleStatus, resultStatus, matches, filterTrades, tradeR, chronology, sortTrades };
 });

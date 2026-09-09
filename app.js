@@ -1855,7 +1855,8 @@ function journalFilters() {
     emotion: value("journalEmotionFilter") || "All",
     account: value("journalAccountFilter") || "Current",
     setup: value("setupFilter") || "All",
-    rule: value("ruleFilterSelect") || "All"
+    rule: value("ruleFilterSelect") || "All",
+    sort: value("journalSortSelect") || "newest"
   };
 }
 
@@ -1897,7 +1898,8 @@ function renderJournal() {
   updateJournalFilterSummary(filtered, scoped.length, filters);
 
   const open = openTrades(filtered).slice().sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-  const closed = closedTrades(filtered).slice().sort((a, b) => (b.closedAt || b.date).localeCompare(a.closedAt || a.date));
+  const closedRecords = closedTrades(filtered);
+  const closed = window.TRDJournalFilter?.sortTrades(closedRecords, filters.sort) || closedRecords.slice().reverse();
   const active = journalFilterIsActive(filters);
   document.getElementById("openTradeCards").innerHTML = open.length ? open.map(tradeCard).join("") : emptyState(active ? "No matching open trades." : t("noOpenTrades"));
   document.getElementById("tradeRows").innerHTML = closed.length ? closed.map(tradeRow).join("") : `<tr><td colspan="8"><div class="empty-state">${active ? "No closed trades match these filters." : "No closed trades yet."}</div></td></tr>`;
@@ -4399,6 +4401,7 @@ document.getElementById("journalSearchInput")?.addEventListener("input", () => {
 });
 ["setupFilter", "ruleFilterSelect", "journalStatusFilter", "journalDateFrom", "journalDateTo", "journalSessionFilter", "journalOutcomeFilter", "journalGradeFilter", "journalEmotionFilter", "journalAccountFilter"]
   .forEach(id => document.getElementById(id)?.addEventListener("change", renderFilteredJournalViews));
+document.getElementById("journalSortSelect")?.addEventListener("change", renderJournal);
 document.getElementById("journalClearFiltersBtn")?.addEventListener("click", () => {
   ["journalSearchInput", "journalDateFrom", "journalDateTo"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
   ["setupFilter", "ruleFilterSelect", "journalStatusFilter", "journalSessionFilter", "journalOutcomeFilter", "journalGradeFilter", "journalEmotionFilter"]

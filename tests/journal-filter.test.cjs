@@ -39,3 +39,31 @@ test('an explicit account filter limits cross-account results', () => {
   assert.deepEqual(filter.filterTrades(trades, { account: 'a' }).map(t => t.id), ['open', 'win']);
   assert.deepEqual(filter.filterTrades(trades, { account: 'All' }).map(t => t.id), trades.map(t => t.id));
 });
+
+test('closed trades sort by close chronology without mutating input', () => {
+  const input = [
+    { id: 'older', date: '2026-09-01', closeTime: '2026-09-01T12:00', risk: 100, pnl: 300 },
+    { id: 'newer', date: '2026-09-03', closedAt: '2026-09-04', risk: 100, pnl: -100 },
+    { id: 'middle', date: '2026-09-02', risk: 100, pnl: 50 }
+  ];
+  const snapshot = structuredClone(input);
+  assert.deepEqual(filter.sortTrades(input, 'newest').map(t => t.id), ['newer', 'middle', 'older']);
+  assert.deepEqual(filter.sortTrades(input, 'oldest').map(t => t.id), ['older', 'middle', 'newer']);
+  assert.deepEqual(input, snapshot);
+});
+
+test('R sorting uses Net P&L divided by risk with deterministic ties', () => {
+  const input = [
+    { id: 'invalid', date: '2026-09-04', risk: 0, pnl: 9999 },
+    { id: 'two-r-old', date: '2026-09-01', risk: 100, pnl: 200 },
+    { id: 'loss', date: '2026-09-03', risk: 50, pnl: -50 },
+    { id: 'two-r-new', date: '2026-09-02', risk: 50, pnl: 100 }
+  ];
+  assert.deepEqual(filter.sortTrades(input, 'bestR').map(t => t.id), ['two-r-new', 'two-r-old', 'invalid', 'loss']);
+  assert.deepEqual(filter.sortTrades(input, 'worstR').map(t => t.id), ['loss', 'invalid', 'two-r-new', 'two-r-old']);
+});
+
+test('unknown sort mode safely falls back to newest first', () => {
+  assert.deepEqual(filter.sortTrades(trades, 'unexpected').map(t => t.id), ['be', 'loss', 'win', 'open']);
+  assert.deepEqual(filter.sortTrades(null, 'bestR'), []);
+});

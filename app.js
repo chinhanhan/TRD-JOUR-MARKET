@@ -2186,7 +2186,8 @@ function mediaBadges(trade) {
   const imgCount = imagesFor(trade).length;
   const imgBadge = imgCount > 1 ? `<span class="tag info">${imgCount} Images</span> ` : imgCount === 1 ? '<span class="tag info">Image</span> ' : "";
   const tvBadge = trade.tradingViewUrl ? '<span class="tag info">TV</span> ' : "";
-  return `${imgBadge}${tvBadge}` || '<span class="muted">None</span>';
+  const preflightBadge = trade.preFlightChecklist?.passed ? '<span class="preflight-verified-badge" title="Verified">✓ Verified</span> ' : "";
+  return `${preflightBadge}${imgBadge}${tvBadge}` || '<span class="muted">None</span>';
 }
 
 function imageFor(trade) {
@@ -2535,45 +2536,6 @@ function formatPeriodString(start, end) {
   const s = start.slice(5).replace("-", ".");
   const e = end.slice(5).replace("-", ".");
   return `${s}\u00A0–\u00A0${e}`;
-}
-
-function summaryCardsFor(trades, start, end) {
-  const m = metrics(trades);
-  const setups = Object.entries(groupBy(trades, "setup")).map(([name, list]) => ({ name, ...metrics(list) }));
-  const best = setups.sort((a, b) => b.expectancy - a.expectancy)[0];
-  const weak = setups.sort((a, b) => a.expectancy - b.expectancy)[0];
-  return [
-    insightCard("Period", formatPeriodString(start, end), `${trades.length} trades`),
-    insightCard("Total Profit", formatR(m.grossWinR), formatDollar(m.grossWinDollars)),
-    insightCard("Total Loss", formatR(m.grossLossR), formatDollar(m.grossLossDollars)),
-    insightCard("Total R", formatR(m.totalR), `${Math.round(m.winRate * 100)}% win rate`),
-    insightCard("Best Setup", best?.name || "No data", best ? formatR(best.expectancy) : "Add trades"),
-    insightCard("Weakest Setup", weak?.name || "No data", weak ? formatR(weak.expectancy) : "Add trades"),
-    insightCard("Process Leak", `${Math.round(processLeakRate(trades) * 100)}%`, "Lower is better")
-  ];
-}
-
-function monthlyCards(trades, start, end) {
-  const m = metrics(trades);
-  const days = dateRange(start, end);
-  const activeDays = days.filter((day) => byDate(day).length || closedByDate(day).length);
-  const dayStats = activeDays.map((day) => ({ day, totalR: metrics(closedByDate(day)).totalR }));
-  const best = [...dayStats].sort((a, b) => b.totalR - a.totalR)[0];
-  const worst = [...dayStats].sort((a, b) => a.totalR - b.totalR)[0];
-  const reviews = days.filter((day) => state.dailyReviews?.[day]).length;
-
-  const formatDateNote = (d) => d ? d.replace(/-/g, ".") : "No data";
-
-  return [
-    insightCard("Period", formatPeriodString(start, end), `${trades.length} trades`),
-    insightCard("Total Profit", formatR(m.grossWinR), formatDollar(m.grossWinDollars)),
-    insightCard("Total Loss", formatR(m.grossLossR), formatDollar(m.grossLossDollars)),
-    insightCard("Total R", formatR(m.totalR), `${Math.round(m.winRate * 100)}% win rate`),
-    insightCard("Active Days", String(activeDays.length), "Days with trades"),
-    insightCard("Best Day", best ? formatR(best.totalR) : "0.00R", formatDateNote(best?.day)),
-    insightCard("Worst Day", worst ? formatR(worst.totalR) : "0.00R", formatDateNote(worst?.day)),
-    insightCard("Review Rate", `${Math.round(reviews / Math.max(activeDays.length, 1) * 100)}%`, "Reviewed active days")
-  ];
 }
 
 function renderPlaybook() {
@@ -3926,14 +3888,6 @@ function openCloseTradeModal(id) {
   
 }
 
-function mediaBadges(trade) {
-  const imgCount = imagesFor(trade).length;
-  const imgBadge = imgCount > 1 ? `<span class="tag info">${imgCount} Images</span> ` : imgCount === 1 ? '<span class="tag info">Image</span> ' : "";
-  const tvBadge = trade.tradingViewUrl ? '<span class="tag info">TV</span> ' : "";
-  const preflightBadge = trade.preFlightChecklist?.passed ? '<span class="preflight-verified-badge" title="Verified">✓ Verified</span> ' : "";
-  return `${preflightBadge}${imgBadge}${tvBadge}` || '<span class="muted">None</span>';
-}
-
 async function closeTradeFromModal(event) {
   event.preventDefault();
   const container = document.getElementById("closeTradeForm");
@@ -4399,11 +4353,9 @@ window.openSheet = openSheet;
 window.closeSheet = closeSheet;
 window.openModal = openModal;
 window.closeModal = closeModal;
-window.clearPastNews = function() {};
-
 window.triggerBentoAction = function(actionStr, moduleName) {
   if (actionStr === "open-capture") {
-    openSheet("tradeFormSheet");
+    window.openTradeCapture();
     return;
   }
   if (moduleName && typeof openModule === "function") {
@@ -4942,7 +4894,7 @@ document.body.addEventListener("click", async (event) => {
   }
   if (editActiveAccount) openAccountModal(state.activeSopId, state.activeAccountId);
   if (openCapture) {
-    openSheet("tradeFormSheet");
+    window.openTradeCapture();
   }
   if (journalViewTarget) {
     journalView = journalViewTarget;
@@ -6438,18 +6390,9 @@ function initLayoutListeners() {
     if (val) val.textContent = e.target.value;
   });
 
-  // Bottom Dock navigation
-  document.querySelectorAll(".dock-item").forEach((button) => {
-    console.log("initLayoutListeners: Registering click for dock item", button.dataset.dockModule);
-    button.addEventListener("click", () => {
-      console.log("initLayoutListeners: Dock item clicked:", button.dataset.dockModule);
-      openModule(button.dataset.dockModule, button);
-    });
-  });
-  
   // Top header "Log Trade" button
   document.getElementById("headerLogTradeBtn")?.addEventListener("click", () => {
-    openSheet("tradeFormSheet");
+    window.openTradeCapture();
   });
 
   // Workflow Tiles (Plan & Review) - CardNav collapsible style

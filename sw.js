@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trd-journey-v210';
+const CACHE_NAME = 'trd-journey-v211';
 const ASSETS = [
   './', './index.html', './styles.css', './dock.css', './auth.css',
   './firebaseConfig.js', './auth.js', './cloudSync.js', './stateSyncCore.js', './backupCore.js', './journalFilterCore.js', './weeklyReviewCore.js', './tradeValidationCore.js', './tradeDraftCore.js',

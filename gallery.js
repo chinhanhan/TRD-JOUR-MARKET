@@ -481,17 +481,6 @@ class VisionOSBentoLauncher {
   }
 }
 
-// Global helper for Dynamic Island action
-window.triggerBentoAction = function(actionStr, moduleName) {
-  if (actionStr === 'open-capture') {
-    if (window.openSheet) window.openSheet('tradeFormSheet');
-    return;
-  }
-  if (moduleName && window.openModule) {
-    window.openModule(moduleName);
-  }
-};
-
 // Global initializer - Guaranteed 100% execution for all engines
 window.initCSS3DCarousel = function() {
   if (window.css3dCarousel) return;

@@ -6,9 +6,9 @@
     <title>TRD Journey — Trading Journal &amp; Performance Review</title>
     <meta name="description" content="Track trades, review execution discipline, and measure your performance with TRD Journey. Built for traders in Malaysia and Southeast Asia." />
     <link rel="manifest" href="manifest.json" />
-    <link rel="stylesheet" href="styles.css?v=210" />
-    <link rel="stylesheet" href="dock.css?v=210" />
-    <link rel="stylesheet" href="auth.css?v=210" />
+    <link rel="stylesheet" href="styles.css?v=211" />
+    <link rel="stylesheet" href="dock.css?v=211" />
+    <link rel="stylesheet" href="auth.css?v=211" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
   </head>
   <body>
@@ -214,7 +214,7 @@
               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
             </svg>
           </button>
-          <button class="primary-button module-action pill-button" id="headerLogTradeBtn" type="button" onclick="window.openTradeCapture && window.openTradeCapture()">
+          <button class="primary-button module-action pill-button" id="headerLogTradeBtn" type="button">
             <span class="label-stack">
               <span class="pill-label">Log Trade</span>
               <span class="pill-label-hover" aria-hidden="true">Log Trade</span>
@@ -296,7 +296,7 @@
               <div class="visionos-bento-grid" id="css3d-carousel">
                 
                 <!-- Bento Card 1: Today (2 columns) -->
-                <div class="css3d-card bento-card bento-wide" data-module="overview" onclick="window.openModule('overview')">
+                <div class="css3d-card bento-card bento-wide" data-module="overview">
                   <div class="card-inner">
                     <div class="card-glare"></div>
                     <div class="card-front">
@@ -312,7 +312,7 @@
                 </div>
 
                 <!-- Bento Card 2: Journal (Square) -->
-                <div class="css3d-card bento-card" data-module="journal" onclick="window.openModule('journal')">
+                <div class="css3d-card bento-card" data-module="journal">
                   <div class="card-inner">
                     <div class="card-glare"></div>
                     <div class="card-front">
@@ -327,7 +327,7 @@
                 </div>
 
                 <!-- Bento Card 3: Missions (Square) -->
-                <div class="css3d-card bento-card" data-module="missions" onclick="window.openModule('missions')">
+                <div class="css3d-card bento-card" data-module="missions">
                   <div class="card-inner">
                     <div class="card-glare"></div>
                     <div class="card-front">
@@ -342,7 +342,7 @@
                 </div>
 
                 <!-- Bento Card 4: Review (2 columns with live mini SVG sparkline!) -->
-                <div class="css3d-card bento-card bento-wide" data-module="review" onclick="window.openModule('review')">
+                <div class="css3d-card bento-card bento-wide" data-module="review">
                   <div class="card-inner">
                     <div class="card-glare"></div>
                     <div class="card-front">
@@ -367,7 +367,7 @@
                 </div>
 
                 <!-- Bento Card 5: System (Square) -->
-                <div class="css3d-card bento-card" data-module="settings" onclick="window.openModule('settings')">
+                <div class="css3d-card bento-card" data-module="settings">
                   <div class="card-inner">
                     <div class="card-glare"></div>
                     <div class="card-front">
@@ -382,7 +382,7 @@
                 </div>
 
                 <!-- Bento Card 6: Long Game (Square) -->
-                <div class="css3d-card bento-card" data-module="long-game" onclick="window.openModule('long-game')">
+                <div class="css3d-card bento-card" data-module="long-game">
                   <div class="card-inner">
                     <div class="card-glare"></div>
                     <div class="card-front">
@@ -454,7 +454,7 @@
             <section class="panel today-open-panel">
               <div class="panel-head">
                 <div><p class="eyebrow">Open Trades</p><h2>Live execution</h2></div>
-                <button class="ghost-button" type="button" data-open-capture onclick="window.openTradeCapture && window.openTradeCapture()">Start Trade</button>
+                <button class="ghost-button" type="button" data-open-capture>Start Trade</button>
               </div>
               <div class="mobile-cards always" id="todayOpenTradeCards"></div>
             </section>
@@ -745,7 +745,7 @@
                   <span style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;">Workspace Context:</span>
                   <select id="activeSopSelect" aria-label="Active SOP"></select>
                   <select id="accountFilterSelect" aria-label="Active account"></select>
-                  <button class="primary-button" type="button" data-open-capture onclick="window.openTradeCapture && window.openTradeCapture()">Start Trade</button>
+                  <button class="primary-button" type="button" data-open-capture>Start Trade</button>
                 </div>
               </div>
 
@@ -2139,7 +2139,7 @@
             
             <!-- QR Box -->
             <div style="background: #ffffff; padding: 8px; border-radius: 14px; display: inline-block; box-shadow: 0 10px 30px rgba(0,0,0,0.4); margin-bottom: 12px; max-width: 210px;">
-              <img src="assets/tng_duitnow_qr.png?v=v147" alt="TRD Journey Touch 'n Go DuitNow QR" style="width: 100%; height: auto; display: block; border-radius: 8px;" />
+              <img src="assets/tng_duitnow_qr.png?v=211" alt="TRD Journey Touch 'n Go DuitNow QR" style="width: 100%; height: auto; display: block; border-radius: 8px;" />
             </div>
 
             <p style="font-size: 12px; color: #a1a1a6; margin: 0; line-height: 1.4;">
@@ -2172,8 +2172,8 @@
       </div>
     </div>
 
-    <script src="stateSyncCore.js?v=210"></script>
-    <script src="backupCore.js?v=210"></script>
+    <script src="stateSyncCore.js?v=211"></script>
+    <script src="backupCore.js?v=211"></script>
 
     <!-- Firebase Cloud SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -2181,19 +2181,19 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics-compat.js"></script>
-    <script src="firebaseConfig.js?v=210"></script>
-    <script src="auth.js?v=210"></script>
-    <script src="cloudSync.js?v=210"></script>
-    <script src="journalFilterCore.js?v=210"></script>
-    <script src="weeklyReviewCore.js?v=210"></script>
-    <script src="tradeValidationCore.js?v=210"></script>
-    <script src="tradeDraftCore.js?v=210"></script>
+    <script src="firebaseConfig.js?v=211"></script>
+    <script src="auth.js?v=211"></script>
+    <script src="cloudSync.js?v=211"></script>
+    <script src="journalFilterCore.js?v=211"></script>
+    <script src="weeklyReviewCore.js?v=211"></script>
+    <script src="tradeValidationCore.js?v=211"></script>
+    <script src="tradeDraftCore.js?v=211"></script>
 
-    <script defer src="audioEngine.js?v=210"></script>
-    <script defer src="dataEngine.js?v=210"></script>
-    <script defer src="dock.js?v=210"></script>
-    <script type="module" src="gallery.js?v=210"></script>
-    <script defer src="app.js?v=210"></script>
-    <script defer src="longGameLogic.js"></script>
+    <script defer src="audioEngine.js?v=211"></script>
+    <script defer src="dataEngine.js?v=211"></script>
+    <script defer src="dock.js?v=211"></script>
+    <script type="module" src="gallery.js?v=211"></script>
+    <script defer src="app.js?v=211"></script>
+    <script defer src="longGameLogic.js?v=211"></script>
   </body>
 </html>

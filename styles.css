@@ -1868,6 +1868,34 @@ label {
   line-height: 1.5;
 }
 
+.trade-draft-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 13px;
+  border: 1px solid rgba(48, 209, 88, 0.28);
+  border-radius: 12px;
+  background: rgba(48, 209, 88, 0.09);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.trade-draft-notice .text-button {
+  flex: 0 0 auto;
+}
+
+.trade-draft-notice.hidden {
+  display: none;
+}
+
+@media (max-width: 520px) {
+  .trade-draft-notice {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 .trade-validation-invalid {
   border-color: var(--red) !important;
   box-shadow: 0 0 0 3px rgba(255, 59, 48, 0.1) !important;
@@ -3423,6 +3451,7 @@ select option {
 /* 抽屉式容器卡片 */
 .sheet-card {
   width: 100%;
+  min-width: 0;
   max-width: 680px;
   background: rgba(255, 255, 255, 0.82);
   backdrop-filter: blur(35px) saturate(190%);

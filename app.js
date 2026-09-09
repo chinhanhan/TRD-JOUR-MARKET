@@ -3366,6 +3366,7 @@ window.verifyAllPreflight = function() {
     if (label) label.classList.add("checked");
   });
   updatePreFlightChecklistProgress();
+  scheduleTradeDraftSave();
   if (typeof playSound === "function") playSound("success");
 };
 
@@ -3457,10 +3458,132 @@ function showTradeValidation(form, result, focus = true) {
   if (focus) { summary.focus({ preventScroll: true }); summary.scrollIntoView({ behavior: "smooth", block: "center" }); }
 }
 
+let tradeDraftSaveTimer = null;
+let tradeDraftRevision = 0;
+let tradeDraftTouched = false;
+
+function tradeDraftStorageKey() {
+  return window.TRDTradeDraft?.storageKey(localOwnerUid) || "";
+}
+
+function captureTradeDraft(form = document.getElementById("tradeForm")) {
+  if (!form || form.elements.id.value || !window.TRDTradeDraft?.createDraft) return null;
+  const values = Object.create(null);
+  for (const name of window.TRDTradeDraft.FIELD_NAMES) {
+    if (name === "mistakes") {
+      values[name] = Array.from(form.querySelectorAll('input[name="mistakes"]:checked')).map(field => field.value);
+      continue;
+    }
+    const field = form.elements[name];
+    if (!field) continue;
+    values[name] = field.type === "checkbox" ? field.checked : field.value;
+  }
+  const preflight = Array.from(form.querySelectorAll(".preflight-checkbox")).map(field => ({
+    text: field.dataset.ruleText || "",
+    checked: field.checked
+  }));
+  return window.TRDTradeDraft.createDraft({
+    values,
+    preflight,
+    advancedOpen: Boolean(form.querySelector(".advanced-fields")?.open)
+  });
+}
+
+function scheduleTradeDraftSave(form = document.getElementById("tradeForm")) {
+  const draft = captureTradeDraft(form);
+  const key = tradeDraftStorageKey();
+  if (!draft || !key) return;
+  tradeDraftTouched = true;
+  const revision = ++tradeDraftRevision;
+  clearTimeout(tradeDraftSaveTimer);
+  tradeDraftSaveTimer = setTimeout(() => {
+    if (revision !== tradeDraftRevision) return;
+    try { localStorage.setItem(key, JSON.stringify(draft)); }
+    catch (error) { console.warn("Trade draft could not be saved:", error); }
+  }, 250);
+}
+
+function saveTradeDraftImmediately(form = document.getElementById("tradeForm")) {
+  if (!tradeDraftTouched) return false;
+  const draft = captureTradeDraft(form);
+  const key = tradeDraftStorageKey();
+  if (!draft || !key) return false;
+  tradeDraftRevision++;
+  clearTimeout(tradeDraftSaveTimer);
+  try {
+    localStorage.setItem(key, JSON.stringify(draft));
+    return true;
+  } catch (error) {
+    console.warn("Trade draft could not be saved immediately:", error);
+    return false;
+  }
+}
+
+function clearTradeDraft() {
+  tradeDraftRevision++;
+  tradeDraftTouched = false;
+  clearTimeout(tradeDraftSaveTimer);
+  const key = tradeDraftStorageKey();
+  if (key) {
+    try { localStorage.removeItem(key); }
+    catch (error) { console.warn("Trade draft could not be cleared:", error); }
+  }
+  document.getElementById("tradeDraftNotice")?.classList.add("hidden");
+}
+
+function restoreTradeDraft(form = document.getElementById("tradeForm")) {
+  const key = tradeDraftStorageKey();
+  if (!form || form.elements.id.value || !key || !window.TRDTradeDraft?.readDraft) return false;
+  let raw = null;
+  try { raw = localStorage.getItem(key); }
+  catch (error) { console.warn("Trade draft could not be read:", error); }
+  if (!raw) return false;
+  const draft = window.TRDTradeDraft.readDraft(raw);
+  if (!draft) {
+    try { localStorage.removeItem(key); } catch (_) {}
+    return false;
+  }
+
+  const sopId = state.sops.some(sop => sop.id === draft.values.sopId && !sop.archivedAt)
+    ? draft.values.sopId
+    : state.activeSopId;
+  form.sopId.value = sopId;
+  const accounts = accountsForSop(sopId).filter(account => !account.archivedAt);
+  form.accountId.innerHTML = accounts.map(account => `<option value="${safe(account.id)}">${safe(account.name)}</option>`).join("");
+  form.accountId.value = accounts.some(account => account.id === draft.values.accountId)
+    ? draft.values.accountId
+    : (accounts[0]?.id || "");
+
+  for (const name of window.TRDTradeDraft.FIELD_NAMES) {
+    if (["sopId", "accountId", "mistakes"].includes(name)) continue;
+    const field = form.elements[name];
+    if (!field) continue;
+    if (field.type === "checkbox") {
+      field.checked = Boolean(draft.values[name]);
+    } else if (field.tagName === "SELECT") {
+      if (Array.from(field.options).some(option => option.value === draft.values[name])) field.value = draft.values[name];
+    } else {
+      field.value = draft.values[name];
+    }
+  }
+  form.querySelectorAll('input[name="mistakes"]').forEach(field => {
+    field.checked = draft.values.mistakes.includes(field.value);
+  });
+  const advanced = form.querySelector(".advanced-fields");
+  if (advanced) advanced.open = draft.advancedOpen;
+  renderPreFlightChecklist(sopId, draft.preflight);
+  clearTradeValidation(form);
+  document.getElementById("tradeDraftNotice")?.classList.remove("hidden");
+  if (typeof checkTradeFormNewsRisk === "function") setTimeout(checkTradeFormNewsRisk, 50);
+  return true;
+}
+
 function resetTradeForm() {
   const form = document.getElementById("tradeForm");
   if (!form) return;
   clearTradeValidation(form);
+  tradeDraftTouched = false;
+  document.getElementById("tradeDraftNotice")?.classList.add("hidden");
   form.reset();
   form.elements.id.value = "";
   form.date.value = todayISO();
@@ -3714,6 +3837,7 @@ async function saveTradeFromForm(event) {
     if (generation !== localGeneration) return;
     if (!saved) { form.elements.id.value = trade.id; return; }
     window.dispatchEvent(new Event("trade-saved"));
+    clearTradeDraft();
     resetTradeForm();
     renderAll();
     const progress = sopProgress(trade.sopId);
@@ -4234,7 +4358,7 @@ function openSheet(id) {
   if (id === "tradeFormSheet") {
     const form = document.getElementById("tradeForm");
     if (form && !form.elements.id.value) {
-      renderPreFlightChecklist(state.activeSopId);
+      if (!restoreTradeDraft(form)) renderPreFlightChecklist(state.activeSopId);
     }
     if (typeof checkTradeFormNewsRisk === "function") {
       setTimeout(checkTradeFormNewsRisk, 50);
@@ -4249,6 +4373,7 @@ function openSheet(id) {
 function closeSheet(id) {
   const sheet = document.getElementById(id);
   if (!sheet || sheet.classList.contains("hidden")) return;
+  if (id === "tradeFormSheet") saveTradeDraftImmediately();
   playSound("switch");
   sheet.classList.remove("active");
   sheet.setAttribute("aria-hidden", "true");
@@ -4441,11 +4566,23 @@ document.getElementById("backHomeBtn")?.addEventListener("click", closeModule);
 document.getElementById("tradeForm")?.addEventListener("submit", saveTradeFromForm);
 document.getElementById("tradeForm")?.addEventListener("input", (event) => {
   const form = event.currentTarget;
+  if (event.target?.name !== "imageFile") scheduleTradeDraftSave(form);
   if (form.dataset.validationShown !== "true") return;
   const current = form.elements.id.value ? state.trades.find((trade) => trade.id === form.elements.id.value) || {} : {};
   const result = tradeDraftValidation(form, current);
   if (result.valid) clearTradeValidation(form);
   else showTradeValidation(form, result, false);
+});
+document.getElementById("tradeForm")?.addEventListener("change", (event) => {
+  if (event.target?.name !== "imageFile") scheduleTradeDraftSave(event.currentTarget);
+});
+document.getElementById("discardTradeDraftBtn")?.addEventListener("click", () => {
+  clearTradeDraft();
+  resetTradeForm();
+  toast("Trade draft discarded.", "info");
+});
+window.addEventListener("pagehide", () => {
+  saveTradeDraftImmediately();
 });
 document.querySelector('#tradeForm [name="openTime"]')?.addEventListener("change", (event) => {
   if (event.target.value) {

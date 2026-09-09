@@ -6,9 +6,9 @@
     <title>TRD Journey — Trading Journal &amp; Performance Review</title>
     <meta name="description" content="Track trades, review execution discipline, and measure your performance with TRD Journey. Built for traders in Malaysia and Southeast Asia." />
     <link rel="manifest" href="manifest.json" />
-    <link rel="stylesheet" href="styles.css?v=208" />
-    <link rel="stylesheet" href="dock.css?v=208" />
-    <link rel="stylesheet" href="auth.css?v=208" />
+    <link rel="stylesheet" href="styles.css?v=209" />
+    <link rel="stylesheet" href="dock.css?v=209" />
+    <link rel="stylesheet" href="auth.css?v=209" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
   </head>
   <body>
@@ -1515,6 +1515,7 @@
         <div class="sheet-body">
           <form class="trade-form" id="tradeForm">
             <input type="hidden" name="id" />
+            <div class="trade-validation-summary hidden" id="tradeValidationSummary" role="alert" aria-live="assertive" tabindex="-1"></div>
             
             <!-- Active Context Selection -->
             <div class="form-row" style="margin-bottom: 12px;">
@@ -2167,8 +2168,8 @@
       </div>
     </div>
 
-    <script src="stateSyncCore.js?v=208"></script>
-    <script src="backupCore.js?v=208"></script>
+    <script src="stateSyncCore.js?v=209"></script>
+    <script src="backupCore.js?v=209"></script>
 
     <!-- Firebase Cloud SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -2176,17 +2177,18 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics-compat.js"></script>
-    <script src="firebaseConfig.js?v=208"></script>
-    <script src="auth.js?v=208"></script>
-    <script src="cloudSync.js?v=208"></script>
-    <script src="journalFilterCore.js?v=208"></script>
-    <script src="weeklyReviewCore.js?v=208"></script>
+    <script src="firebaseConfig.js?v=209"></script>
+    <script src="auth.js?v=209"></script>
+    <script src="cloudSync.js?v=209"></script>
+    <script src="journalFilterCore.js?v=209"></script>
+    <script src="weeklyReviewCore.js?v=209"></script>
+    <script src="tradeValidationCore.js?v=209"></script>
 
-    <script defer src="audioEngine.js?v=208"></script>
-    <script defer src="dataEngine.js?v=208"></script>
-    <script defer src="dock.js?v=208"></script>
-    <script type="module" src="gallery.js?v=208"></script>
-    <script defer src="app.js?v=208"></script>
+    <script defer src="audioEngine.js?v=209"></script>
+    <script defer src="dataEngine.js?v=209"></script>
+    <script defer src="dock.js?v=209"></script>
+    <script type="module" src="gallery.js?v=209"></script>
+    <script defer src="app.js?v=209"></script>
     <script defer src="longGameLogic.js"></script>
   </body>
 </html>

@@ -3410,9 +3410,57 @@ function updatePreFlightChecklistProgress(silent = false) {
   }
 }
 
+function tradeDraftValidation(form, current = {}) {
+  if (!window.TRDTradeValidation?.validateDraft) return { valid: true, errors: [] };
+  return window.TRDTradeValidation.validateDraft({
+    currentStatus: current.status || "open",
+    openTime: form.openTime?.value,
+    closeTime: form.closeTime?.value,
+    risk: form.risk?.value,
+    pnl: form.pnl?.value,
+    maeR: form.maeR?.value,
+    mfeR: form.mfeR?.value
+  });
+}
+
+function clearTradeValidation(form = document.getElementById("tradeForm")) {
+  if (!form) return;
+  delete form.dataset.validationShown;
+  form.querySelectorAll(".trade-validation-invalid").forEach(field => {
+    field.classList.remove("trade-validation-invalid");
+    field.removeAttribute("aria-invalid");
+  });
+  const summary = document.getElementById("tradeValidationSummary");
+  if (summary) { summary.classList.add("hidden"); summary.innerHTML = ""; }
+}
+
+function showTradeValidation(form, result, focus = true) {
+  const summary = document.getElementById("tradeValidationSummary");
+  if (!summary) return;
+  form.dataset.validationShown = "true";
+  form.querySelectorAll(".trade-validation-invalid").forEach(field => {
+    field.classList.remove("trade-validation-invalid");
+    field.removeAttribute("aria-invalid");
+  });
+  result.errors.forEach(error => {
+    const field = form.elements[error.field];
+    if (!field) return;
+    field.classList.add("trade-validation-invalid");
+    field.setAttribute("aria-invalid", "true");
+  });
+  if (result.errors.some(error => ["pnl", "maeR", "mfeR"].includes(error.field))) {
+    const advanced = form.querySelector(".advanced-fields");
+    if (advanced) advanced.open = true;
+  }
+  summary.innerHTML = `<strong>Check this trade before saving</strong><ul>${result.errors.map(error => `<li>${safe(error.message)}</li>`).join("")}</ul>`;
+  summary.classList.remove("hidden");
+  if (focus) { summary.focus({ preventScroll: true }); summary.scrollIntoView({ behavior: "smooth", block: "center" }); }
+}
+
 function resetTradeForm() {
   const form = document.getElementById("tradeForm");
   if (!form) return;
+  clearTradeValidation(form);
   form.reset();
   form.elements.id.value = "";
   form.date.value = todayISO();
@@ -3455,6 +3503,7 @@ function editTrade(id) {
   const trade = state.trades.find((item) => item.id === id);
   if (!trade) return;
   const form = document.getElementById("tradeForm");
+  clearTradeValidation(form);
   form.elements.id.value = trade.id;
   form.date.value = trade.date;
   if (form.openTime) form.openTime.value = trade.openTime || (trade.date ? `${trade.date}T09:30` : nowDatetimeLocal());
@@ -3518,6 +3567,14 @@ async function saveTradeFromForm(event) {
   const form = event.currentTarget;
   if (form.dataset.saving === 'true') return;
   const generation = localGeneration;
+  const current = form.elements.id.value ? state.trades.find((trade) => trade.id === form.elements.id.value) || {} : {};
+  const validation = tradeDraftValidation(form, current);
+  if (!validation.valid) {
+    showTradeValidation(form, validation);
+    toast("Review the highlighted trade details.", "error");
+    return;
+  }
+  clearTradeValidation(form);
 
   // SaaS Validation: Check if user is logged in & has remaining trade quota
   const isNewTrade = !form.elements.id.value;
@@ -3533,7 +3590,6 @@ async function saveTradeFromForm(event) {
     const imagePromises = Array.from(form.imageFile.files).map(file => fileToDataUrl(file));
     const imagesData = (await Promise.all(imagePromises)).filter(Boolean);
     if (generation !== localGeneration) return;
-    const current = form.elements.id.value ? state.trades.find((trade) => trade.id === form.elements.id.value) : {};
     const hasResult = form.pnl.value.trim() !== "";
     const hasCloseTime = Boolean(form.closeTime?.value.trim());
     const isEditingExistingClosed = Boolean(current && current.status === "closed");
@@ -4383,6 +4439,14 @@ document.addEventListener("click", (e) => {
 document.getElementById("backHomeBtn")?.addEventListener("click", closeModule);
 
 document.getElementById("tradeForm")?.addEventListener("submit", saveTradeFromForm);
+document.getElementById("tradeForm")?.addEventListener("input", (event) => {
+  const form = event.currentTarget;
+  if (form.dataset.validationShown !== "true") return;
+  const current = form.elements.id.value ? state.trades.find((trade) => trade.id === form.elements.id.value) || {} : {};
+  const result = tradeDraftValidation(form, current);
+  if (result.valid) clearTradeValidation(form);
+  else showTradeValidation(form, result, false);
+});
 document.querySelector('#tradeForm [name="openTime"]')?.addEventListener("change", (event) => {
   if (event.target.value) {
     const form = document.getElementById("tradeForm");

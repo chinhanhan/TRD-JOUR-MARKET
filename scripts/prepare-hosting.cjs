@@ -19,6 +19,7 @@ const publicFiles = [
   'backupCore.js',
   'journalFilterCore.js',
   'weeklyReviewCore.js',
+  'tradeValidationCore.js',
   'firebaseConfig.js',
   'audioEngine.js',
   'dataEngine.js',

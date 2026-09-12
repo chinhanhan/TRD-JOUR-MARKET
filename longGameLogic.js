@@ -862,6 +862,25 @@ if (typeof window.closeSheet === 'function' && !window._lgCloseSheetProxied) {
 // ==========================================
 // Behavioral Trend Visualization (Chart.js)
 // ==========================================
+let trendChartLibraryPromise = null;
+
+function ensureTrendChartLibrary() {
+  if (typeof window.Chart !== "undefined") return Promise.resolve(window.Chart);
+  if (trendChartLibraryPromise) return trendChartLibraryPromise;
+  trendChartLibraryPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js";
+    script.async = true;
+    script.onload = () => resolve(window.Chart);
+    script.onerror = () => reject(new Error("Chart library could not be loaded."));
+    document.head.appendChild(script);
+  }).catch((error) => {
+    trendChartLibraryPromise = null;
+    throw error;
+  });
+  return trendChartLibraryPromise;
+}
+
 function renderTrendChart() {
   const canvas = document.getElementById("lgTrendChartCanvas");
   if (!canvas) return;
@@ -869,8 +888,9 @@ function renderTrendChart() {
   const ctx = canvas.getContext("2d");
   if (!window._lgTrendChart) {
     if (typeof Chart === "undefined") {
-      // Chart.js not loaded yet, retry shortly
-      // Keep the rest of the journal usable when the chart CDN is unavailable.
+      ensureTrendChartLibrary().then(renderTrendChart).catch((error) => {
+        console.warn("Behavioral trend chart unavailable:", error);
+      });
       return;
     }
   }

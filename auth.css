@@ -31,7 +31,7 @@
 }
 
 .auth-trigger-btn.primary {
-  background: var(--accent, #0a84ff);
+  background: #006edb;
   color: #ffffff;
   border-color: transparent;
   font-weight: 600;
@@ -476,7 +476,7 @@
 }
 
 .landing-cta-primary {
-  background: var(--accent, #0a84ff);
+  background: #006edb;
   color: #ffffff;
   border: none;
   font-size: 16px;
@@ -539,7 +539,7 @@
   margin-bottom: 14px;
 }
 
-.pillar-card h3 {
+.pillar-card h2 {
   font-size: 18px;
   font-weight: 700;
   margin: 0 0 8px;
@@ -723,7 +723,7 @@
 }
 
 .pricing-btn.pro-btn {
-  background: #0a84ff;
+  background: #006edb;
   color: #fff;
   box-shadow: 0 6px 20px rgba(10, 132, 255, 0.4);
 }

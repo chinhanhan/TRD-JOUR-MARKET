@@ -17,7 +17,6 @@ if (typeof firebase !== 'undefined') {
   window.fbApp = firebase.app();
   window.fbAuth = firebase.auth();
   window.fbDb = firebase.firestore();
-  window.fbStorage = firebase.storage();
   if (typeof firebase.analytics === 'function') {
     window.fbAnalytics = firebase.analytics();
   }

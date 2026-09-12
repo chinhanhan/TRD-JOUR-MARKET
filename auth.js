@@ -468,6 +468,10 @@
       if (tierQuarterly) tierQuarterly.classList.toggle('active', tier === 'quarterly');
       if (tierYearly) tierYearly.classList.toggle('active', tier === 'yearly');
       if (tierLifetime) tierLifetime.classList.toggle('active', tier === 'lifetime');
+      if (tierMonthly) tierMonthly.setAttribute('aria-pressed', String(tier === 'monthly'));
+      if (tierQuarterly) tierQuarterly.setAttribute('aria-pressed', String(tier === 'quarterly'));
+      if (tierYearly) tierYearly.setAttribute('aria-pressed', String(tier === 'yearly'));
+      if (tierLifetime) tierLifetime.setAttribute('aria-pressed', String(tier === 'lifetime'));
 
       // Update Stripe Section
       const stripeTitle = document.getElementById('upgradeStripePlanTitle');

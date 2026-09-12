@@ -9,6 +9,7 @@ function fixture(){
 }
 test('first save synchronizes window state and commits under its own UID',async()=>{
  const f=fixture();await f.context.saveState();assert.equal(f.writes[0].key,'trd-journey-os-v1:user:a');assert.equal(f.context.window.state.ownerUid,'a');
+ await f.context.window.TRDLocalStore.switchUser('a');assert.equal(f.writes.length,1);
  await f.context.window.TRDLocalStore.switchUser('b');assert.equal(f.writes.at(-1).key,'trd-journey-os-v1:user:b');
  assert.equal(f.context.window.TRDLocalStore.getSnapshot().ownerUid,'b');
 });

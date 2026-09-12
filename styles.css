@@ -7073,6 +7073,8 @@ body:not(:has(#landing-gallery.active)) .ios-dock-container {
   text-align: center;
   transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   user-select: none;
+  color: inherit;
+  font: inherit;
 }
 
 .pricing-tier-card:hover {
@@ -7116,6 +7118,7 @@ body:not(:has(#landing-gallery.active)) .ios-dock-container {
 }
 
 .pricing-tier-name {
+  display: block;
   font-size: 12px;
   font-weight: 700;
   color: #e5e5ea;
@@ -7123,6 +7126,7 @@ body:not(:has(#landing-gallery.active)) .ios-dock-container {
 }
 
 .pricing-tier-price {
+  display: block;
   font-size: 18px;
   font-weight: 800;
   color: #fff;
@@ -7136,6 +7140,7 @@ body:not(:has(#landing-gallery.active)) .ios-dock-container {
 }
 
 .pricing-tier-desc {
+  display: block;
   font-size: 10px;
   color: #8e8e93;
   margin-top: 4px;

@@ -759,6 +759,9 @@ window.TRDLocalStore = {
   cacheProfile: (uid, profile) => idbSet(`${storageKeyFor(uid)}:profile`, profile),
   switchUser(uid) {
     const nextUid = uid || null;
+    // Auth emits the current guest owner once during startup. The journal is
+    // already loaded and rendered at that point, so avoid a duplicate full render.
+    if (nextUid === localOwnerUid && durableState) return Promise.resolve();
     localGeneration++;
     window.isImporting = false;
     document.querySelectorAll('.sheet-backdrop.active').forEach(sheet => closeSheet(sheet.id));

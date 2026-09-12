@@ -37,7 +37,6 @@ class ReactBitsDockEngine {
   init() {
     this.render();
     this.bindEvents();
-    this.startLoop();
   }
 
   render() {
@@ -70,11 +69,13 @@ class ReactBitsDockEngine {
     panel.addEventListener('mousemove', (e) => {
       this.isHovered = true;
       this.mouseX = e.pageX;
+      this.startLoop();
     }, { passive: true });
 
     panel.addEventListener('mouseleave', () => {
       this.isHovered = false;
       this.mouseX = Infinity;
+      this.startLoop();
     }, { passive: true });
 
     this.itemStates.forEach(state => {
@@ -106,9 +107,14 @@ class ReactBitsDockEngine {
   }
 
   startLoop() {
+    if (this.animFrame !== null) return;
     const lerpSpeed = 0.22;
     const step = () => {
-      if (!this.container || !document.body.contains(this.container)) return;
+      if (!this.container || !document.body.contains(this.container)) {
+        this.animFrame = null;
+        return;
+      }
+      let needsNextFrame = false;
       this.itemStates.forEach((state) => {
         // Measure unmagnified base center of each item directly from its left edge + half base size
         const rect = state.el.getBoundingClientRect();
@@ -131,6 +137,8 @@ class ReactBitsDockEngine {
 
         if (Math.abs(target - state.currentSize) < 0.05) {
           state.currentSize = target;
+        } else {
+          needsNextFrame = true;
         }
 
         // Hard clamp currentSize
@@ -145,10 +153,14 @@ class ReactBitsDockEngine {
         }
       });
 
-      this.animFrame = requestAnimationFrame(step);
+      if (needsNextFrame) {
+        this.animFrame = requestAnimationFrame(step);
+      } else {
+        this.animFrame = null;
+      }
     };
 
-    step();
+    this.animFrame = requestAnimationFrame(step);
   }
 
   setActiveModule(name) {
@@ -172,6 +184,8 @@ class ReactBitsDockEngine {
         item.label = currentMap[item.module];
         const labelEl = this.container.querySelector(`[data-dock-index="${idx}"] .dock-label`);
         if (labelEl) labelEl.textContent = item.label;
+        const itemEl = this.container.querySelector(`[data-dock-index="${idx}"]`);
+        if (itemEl) itemEl.setAttribute('aria-label', item.label);
       }
     });
   }

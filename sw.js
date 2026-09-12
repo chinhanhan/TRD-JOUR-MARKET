@@ -1,13 +1,12 @@
-const CACHE_NAME = 'trd-journey-v212';
+const CACHE_NAME = 'trd-journey-v213';
 const ASSETS = [
   './', './index.html', './styles.css', './dock.css', './auth.css',
   './firebaseConfig.js', './auth.js', './cloudSync.js', './stateSyncCore.js', './backupCore.js', './journalFilterCore.js', './weeklyReviewCore.js', './tradeValidationCore.js', './tradeDraftCore.js',
   './audioEngine.js', './dataEngine.js', './dock.js', './gallery.js', './app.js',
-  './longGameLogic.js', './manifest.json', './assets/tng_duitnow_qr.png'
+  './longGameLogic.js', './manifest.json', './assets/icon-192.png', './assets/icon-512.png', './assets/tng_duitnow_qr.png'
 ];
 const EXTERNAL = [
-  'https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js',
-  ...['app', 'auth', 'firestore', 'storage', 'analytics'].map(name =>
+  ...['app', 'auth', 'firestore', 'analytics'].map(name =>
     `https://www.gstatic.com/firebasejs/10.12.0/firebase-${name}-compat.js`)
 ];
 self.addEventListener('install', event => {

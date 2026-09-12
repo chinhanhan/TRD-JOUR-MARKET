@@ -29,6 +29,8 @@ const publicFiles = [
   'longGameLogic.js',
   'manifest.json',
   'sw.js',
+  'assets/icon-192.png',
+  'assets/icon-512.png',
   'assets/tng_duitnow_qr.png'
 ];
 

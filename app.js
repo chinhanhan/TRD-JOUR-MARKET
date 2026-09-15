@@ -1841,8 +1841,12 @@ function insightCard(title, value, note, insightKey = "") {
 
   const cardKlass = isPeriod ? " card-period" : "";
   const valKlass = isPeriod ? " is-period" : isLongVal ? " is-long" : "";
+  const safeValue = safe(value);
+  // Allow a period to wrap only at its separator when the summary sits in
+  // the narrower side of the calendar layout.
+  const renderedValue = isPeriod ? safeValue.replace(/\s*–\s*/, "–<wbr>") : safeValue;
 
-  return `<article class="insight-card${cardKlass}"${clickAttr}><span>${safe(title)}</span><strong class="value ${klass}${valKlass}">${safe(value)}</strong><small>${safe(note)}</small></article>`;
+  return `<article class="insight-card${cardKlass}"${clickAttr}><span>${safe(title)}</span><strong class="value ${klass}${valKlass}">${renderedValue}</strong><small>${safe(note)}</small></article>`;
 }
 
 function journalFilters() {

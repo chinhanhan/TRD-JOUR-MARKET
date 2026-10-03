@@ -150,7 +150,9 @@ class TRDDataEngine {
     const scope = escape(account?.name || (accountId ? "Selected account" : "All accounts"));
     const totalTrades = trades.length;
     const wins = trades.filter(t => Number(t.pnl) > 0).length;
-    const winRate = totalTrades ? Math.round((wins / totalTrades) * 100) : 0;
+    const losses = trades.filter(t => Number(t.pnl) < 0).length;
+    const winRate = wins + losses ? Math.round((wins / (wins + losses)) * 100) : 0;
+    const winRateLabel = wins + losses ? `${winRate}%` : "—";
     const totalR = trades.reduce((acc, t) => acc + window.rValue(t), 0);
     const invalidRiskCount = trades.filter(t => !(Number(t.risk) > 0) || !Number.isFinite(Number(t.risk))).length;
     const followedRulesCount = trades.filter(t => window.getTradeRuleStatus(t) === "followed").length;
@@ -201,7 +203,7 @@ class TRDDataEngine {
           </div>
           <div class="metric-card">
             <div class="metric-label">Win Rate</div>
-            <div class="metric-val">${winRate}%</div>
+            <div class="metric-val">${winRateLabel}</div>
           </div>
           <div class="metric-card">
             <div class="metric-label">Cumulative Net R</div>
@@ -474,4 +476,3 @@ function _deUid() { return `${Date.now()}-${Math.random().toString(16).slice(2)}
 
 window.trdDataEngine = new TRDDataEngine();
 window.forexFactoryRedNewsEngine = new ForexFactoryRedNewsEngine();
-

@@ -170,6 +170,8 @@ const defaultSopDetails = {
 };
 
 let journalView = "timeline";
+let selectedJournalSymbol = null;
+let symbolRecordLimit = 20;
 
 let state = null;
 let localOwnerUid = null;
@@ -844,6 +846,10 @@ function closedTrades(trades = visibleTrades()) {
     String(a.closeTime || a.closedAt || a.date || '').localeCompare(String(b.closeTime || b.closedAt || b.date || '')) || String(a.id).localeCompare(String(b.id)));
 }
 
+function resultDate(trade) {
+  return String(trade?.closeTime || trade?.closedAt || trade?.date || '').slice(0, 10);
+}
+
 function openTrades(trades = visibleTrades()) {
   return trades.filter((trade) => trade.status === "open");
 }
@@ -954,14 +960,16 @@ function nowDatetimeLocal() {
 
 function metrics(trades = closedTrades()) {
   const source = closedTrades(trades);
-  const rList = source.map(rValue);
+  const validRTrades = source.filter((trade) => Number.isFinite(Number(trade?.risk)) && Number(trade.risk) > 0 && Number.isFinite(Number(trade?.pnl)));
+  const rList = validRTrades.map(rValue);
   const pnlList = source.map((t) => Number(t.pnl || (rValue(t) * Number(t.risk || 0)) || 0));
 
   const winningTrades = source.filter((t) => rValue(t) > 0 || Number(t.pnl || 0) > 0);
   const losingTrades = source.filter((t) => rValue(t) < 0 || Number(t.pnl || 0) < 0);
+  const breakevenTrades = source.filter((t) => !winningTrades.includes(t) && !losingTrades.includes(t));
 
-  const grossWinR = winningTrades.reduce((sum, t) => sum + rValue(t), 0);
-  const grossLossR = losingTrades.reduce((sum, t) => sum + rValue(t), 0);
+  const grossWinR = validRTrades.filter((t) => Number(t.pnl || 0) > 0).reduce((sum, t) => sum + rValue(t), 0);
+  const grossLossR = validRTrades.filter((t) => Number(t.pnl || 0) < 0).reduce((sum, t) => sum + rValue(t), 0);
 
   const grossWinDollars = winningTrades.reduce((sum, t) => sum + Number(t.pnl || (rValue(t) * Number(t.risk || 0)) || 0), 0);
   const grossLossDollars = losingTrades.reduce((sum, t) => sum + Number(t.pnl || (rValue(t) * Number(t.risk || 0)) || 0), 0);
@@ -976,6 +984,12 @@ function metrics(trades = closedTrades()) {
   }
   return {
     count: source.length,
+    wins: winningTrades.length,
+    losses: losingTrades.length,
+    breakevens: breakevenTrades.length,
+    decisiveCount: winningTrades.length + losingTrades.length,
+    validRCount: validRTrades.length,
+    invalidRiskCount: source.length - validRTrades.length,
     totalR: rList.reduce((sum, r) => sum + r, 0),
     totalPnL: pnlList.reduce((sum, p) => sum + p, 0),
     grossWinR,
@@ -983,10 +997,14 @@ function metrics(trades = closedTrades()) {
     grossWinDollars,
     grossLossDollars,
     expectancy: rList.length ? rList.reduce((sum, r) => sum + r, 0) / rList.length : 0,
-    winRate: rList.length ? winningTrades.length / rList.length : 0,
+    winRate: (winningTrades.length + losingTrades.length) ? winningTrades.length / (winningTrades.length + losingTrades.length) : 0,
     profitFactor: Math.abs(grossLossR) ? grossWinR / Math.abs(grossLossR) : grossWinR ? Infinity : 0,
     maxDrawdown
   };
+}
+
+function metricWinRateText(metric) {
+  return metric?.decisiveCount ? `${Math.round(metric.winRate * 100)}%` : "—";
 }
 
 function byDate(date) {
@@ -1099,6 +1117,7 @@ function sopProgress(sopId = state.activeSopId) {
     expectancy: m.expectancy,
     totalR: m.totalR,
     winRate: m.winRate,
+    decisiveCount: m.decisiveCount,
     ruleRate: closed.length ? followed / validForRule : 0,
     aGradeRate: closed.length ? aGrades / closed.length : 0,
     incompleteCount: incomplete,
@@ -1580,7 +1599,7 @@ function setWorkflowDate(day) {
 function renderMetrics() {
   const m = metrics();
   setText("expectancyMetric", formatR(m.expectancy));
-  setText("winRateMetric", `${Math.round(m.winRate * 100)}%`);
+  setText("winRateMetric", metricWinRateText(m));
   setText("profitFactorMetric", Number.isFinite(m.profitFactor) ? m.profitFactor.toFixed(2) : "inf");
   setText("drawdownMetric", formatR(m.maxDrawdown));
   setText("tradeCountLabel", `${m.count} trades`);
@@ -1608,7 +1627,7 @@ function equitySeries() {
   let total = 0;
   return [{ value: 0, label: "Start" }, ...closedTrades().map((trade) => {
     total += rValue(trade);
-    return { value: total, label: trade.date, detail: `${trade.symbol} (${formatR(rValue(trade))})` };
+    return { value: total, label: resultDate(trade), detail: `${trade.symbol} (${formatR(rValue(trade))})` };
   })];
 }
 
@@ -1618,7 +1637,7 @@ function drawdownSeries() {
   return [{ value: 0, label: "Start" }, ...closedTrades().map((trade) => {
     total += rValue(trade);
     peak = Math.max(peak, total);
-    return { value: total - peak, label: trade.date, detail: `${trade.symbol} DD` };
+    return { value: total - peak, label: resultDate(trade), detail: `${trade.symbol} DD` };
   })];
 }
 
@@ -1800,7 +1819,7 @@ function summaryCardsFor(trades, start, end) {
     insightCard("Period", formatPeriodString(start, end), `${trades.length} trades`),
     insightCard("Total Profit", formatR(m.grossWinR), formatDollar(m.grossWinDollars)),
     insightCard("Total Loss", formatLossR(m.grossLossR), formatDollar(m.grossLossDollars)),
-    insightCard("Total R", formatR(m.totalR), `${Math.round(m.winRate * 100)}% win rate`),
+    insightCard("Total R", formatR(m.totalR), `${metricWinRateText(m)} win rate`),
     insightCard("Best Setup", best?.name || "No data", best ? formatR(best.expectancy) : "Add trades"),
     insightCard("Weakest Setup", weak?.name || "No data", weak ? formatR(weak.expectancy) : "Add trades"),
     insightCard("Process Leak", `${Math.round(processLeakRate(trades) * 100)}%`, "Lower is better")
@@ -1822,7 +1841,7 @@ function monthlyCards(trades, start, end) {
     insightCard("Period", formatPeriodString(start, end), `${trades.length} trades`),
     insightCard("Total Profit", formatR(m.grossWinR), formatDollar(m.grossWinDollars)),
     insightCard("Total Loss", formatLossR(m.grossLossR), formatDollar(m.grossLossDollars)),
-    insightCard("Total R", formatR(m.totalR), `${Math.round(m.winRate * 100)}% win rate`),
+    insightCard("Total R", formatR(m.totalR), `${metricWinRateText(m)} win rate`),
     insightCard("Active Days", String(activeDays.length), "Days with trades"),
     insightCard("Best Day", best ? formatR(best.totalR) : "0.00R", formatDateNote(best?.day)),
     insightCard("Worst Day", worst ? formatR(worst.totalR) : "0.00R", formatDateNote(worst?.day)),
@@ -1911,6 +1930,199 @@ function renderJournal() {
   document.getElementById("openTradeCards").innerHTML = open.length ? open.map(tradeCard).join("") : emptyState(active ? "No matching open trades." : t("noOpenTrades"));
   document.getElementById("tradeRows").innerHTML = closed.length ? closed.map(tradeRow).join("") : `<tr><td colspan="8"><div class="empty-state">${active ? "No closed trades match these filters." : "No closed trades yet."}</div></td></tr>`;
   document.getElementById("mobileTradeCards").innerHTML = closed.length ? closed.map(tradeCard).join("") : emptyState(active ? "No closed trades match these filters." : "No closed trades yet.");
+  if (journalView === "symbols") renderSymbolAnalysis();
+}
+
+function sampleConfidenceHtml(count) {
+  if (count < 30) return `<span class="symbol-sample insufficient">Sample too small · ${count}/30</span>`;
+  if (count < 50) return `<span class="symbol-sample preliminary">Early read · ${count}/50</span>`;
+  return `<span class="symbol-sample established">Useful sample · ${count}</span>`;
+}
+
+function symbolProfitFactor(value) {
+  return value === Infinity ? "∞" : Number(value || 0).toFixed(2);
+}
+
+function symbolWinRateText(metric) {
+  return metricWinRateText(metric);
+}
+
+function symbolGroupRows(rows) {
+  if (!rows.length) return emptyState("No closed trades for this breakdown.");
+  return `<div class="symbol-breakdown-list">${rows.map(row => `
+    <div class="symbol-breakdown-row">
+      <strong>${safe(row.label)}</strong>
+      <span>${row.count} trades</span>
+      <span>${symbolWinRateText(row)} win</span>
+      <span class="${row.expectancy >= 0 ? "positive" : "negative"}">${row.validRCount ? formatR(row.expectancy) : "—"} avg</span>
+    </div>`).join("")}</div>`;
+}
+
+function symbolCurveSvg(trades) {
+  const api = window.TRDSymbolAnalysis;
+  const ordered = closedTrades(trades)
+    .filter(trade => Number.isFinite(Number(trade?.risk)) && Number(trade.risk) > 0 && Number.isFinite(Number(trade?.pnl)))
+    .slice().sort((a, b) => api.closeDate(a).localeCompare(api.closeDate(b)));
+  if (!ordered.length) return emptyState("No trades with valid Risk to chart.");
+  const values = [0];
+  ordered.forEach(trade => values.push(values[values.length - 1] + api.tradeR(trade)));
+  const min = Math.min(...values, 0);
+  const max = Math.max(...values, 0);
+  const spread = Math.max(max - min, 1);
+  const points = values.map((value, index) => {
+    const x = values.length === 1 ? 0 : index / (values.length - 1) * 100;
+    const y = 92 - ((value - min) / spread) * 78;
+    return `${x.toFixed(2)},${y.toFixed(2)}`;
+  }).join(" ");
+  const zeroY = 92 - ((0 - min) / spread) * 78;
+  return `<div class="symbol-curve-wrap">
+    <svg class="symbol-curve" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Cumulative R curve">
+      <line x1="0" y1="${zeroY}" x2="100" y2="${zeroY}" class="symbol-curve-zero"></line>
+      <polyline points="${points}" class="symbol-curve-line"></polyline>
+    </svg>
+    <div class="symbol-curve-meta"><span>${safe(api.closeDate(ordered[0]) || "Start")}</span><strong>${formatR(values.at(-1))}</strong><span>${safe(api.closeDate(ordered.at(-1)) || "Latest")}</span></div>
+  </div>`;
+}
+
+function symbolDistribution(trades) {
+  const bins = [
+    { label: "≤-1R", test: value => value <= -1 },
+    { label: "-1–0R", test: value => value > -1 && value < 0 },
+    { label: "0R", test: value => value === 0 },
+    { label: "0–1R", test: value => value > 0 && value < 1 },
+    { label: "≥1R", test: value => value >= 1 }
+  ].map(bin => ({ ...bin, count: 0 }));
+  const validTrades = closedTrades(trades).filter(trade => Number.isFinite(Number(trade?.risk)) && Number(trade.risk) > 0 && Number.isFinite(Number(trade?.pnl)));
+  if (!validTrades.length) return emptyState("No trades with valid Risk to distribute.");
+  validTrades.forEach(trade => bins.find(bin => bin.test(rValue(trade))).count++);
+  const max = Math.max(...bins.map(bin => bin.count), 1);
+  return `<div class="symbol-distribution">${bins.map(bin => `
+    <div><strong>${bin.count}</strong><i style="height:${Math.max(8, bin.count / max * 88)}%"></i><span>${bin.label}</span></div>`).join("")}</div>`;
+}
+
+function renderSymbolDetail(row, overall) {
+  const target = document.getElementById("symbolDetailPanel");
+  if (!target) return;
+  if (!row) {
+    target.classList.add("hidden");
+    target.innerHTML = "";
+    return;
+  }
+  const api = window.TRDSymbolAnalysis;
+  const groups = api.detailGroups(row.closedTrades);
+  const comparable = row.decisiveCount > 0 && overall.decisiveCount > 0;
+  const delta = comparable ? row.winRate - overall.winRate : 0;
+  const records = row.trades.slice().sort((a, b) => api.closeDate(b).localeCompare(api.closeDate(a)));
+  const visibleRecords = records.slice(0, symbolRecordLimit);
+  target.classList.remove("hidden");
+  target.innerHTML = `
+    <div class="symbol-detail-head">
+      <div><p class="eyebrow">Symbol detail</p><h3>${safe(row.label)}</h3><p>${comparable ? `${delta >= 0 ? "+" : ""}${Math.round(delta * 100)} pts versus the filtered journal win rate.` : "No decisive win/loss comparison is available yet."}</p></div>
+      <button class="ghost-button compact" data-symbol-clear type="button">All symbols</button>
+    </div>
+    <div class="symbol-summary-grid detail">
+      ${insightCard("Win rate", symbolWinRateText(row), `${row.wins}W · ${row.losses}L · ${row.breakevens}BE`)}
+      ${insightCard("Average R", row.validRCount ? formatR(row.averageR) : "—", `${row.validRCount} valid-R trades`)}
+      ${insightCard("Total R", row.validRCount ? formatR(row.totalR) : "—", `${row.invalidRiskCount} excluded for missing Risk`)}
+      ${insightCard("Net P&L", formatDollar(row.totalPnL), `${formatDollar(row.averagePnL)} average`)}
+      ${insightCard("Profit factor", row.validRCount ? symbolProfitFactor(row.profitFactor) : "—", row.invalidRiskCount ? `${row.invalidRiskCount} trade${row.invalidRiskCount === 1 ? "" : "s"} excluded` : "Gross winning R ÷ losing R")}
+      ${insightCard("Max drawdown", row.validRCount ? formatR(row.maxDrawdown) : "—", "Peak-to-trough in valid R")}
+      ${insightCard("Open exposure", String(row.openCount), "Excluded from performance")}
+    </div>
+    <div class="symbol-primary-charts">
+      <article class="symbol-chart-card"><div class="symbol-chart-head"><strong>Cumulative R</strong><span>By close date</span></div>${symbolCurveSvg(row.closedTrades)}</article>
+      <article class="symbol-chart-card"><div class="symbol-chart-head"><strong>Monthly performance</strong><span>Average R</span></div>${symbolGroupRows(groups.months)}</article>
+    </div>
+    <div class="symbol-secondary-charts">
+      <details><summary>Session performance</summary>${symbolGroupRows(groups.sessions)}</details>
+      <details><summary>Long vs short</summary>${symbolGroupRows(groups.directions)}</details>
+      <details><summary>Trade result distribution</summary>${symbolDistribution(row.closedTrades)}</details>
+    </div>
+    <div class="symbol-records-head"><div><p class="eyebrow">Evidence</p><h3>${safe(row.label)} records</h3></div><span>Showing ${visibleRecords.length} of ${records.length} · ${row.openCount} open</span></div>
+    <div class="symbol-record-grid">${visibleRecords.length ? visibleRecords.map(tradeCard).join("") : emptyState("No records for this symbol.")}</div>
+    ${visibleRecords.length < records.length ? `<button class="ghost-button symbol-load-more" data-symbol-more type="button">Show ${Math.min(20, records.length - visibleRecords.length)} more trades</button>` : ""}`;
+}
+
+function updateSymbolFilterSummary(analysis, total, filters) {
+  const activeCount = [filters.dateFrom, filters.dateTo,
+    ...[filters.session, filters.grade, filters.emotion, filters.setup, filters.rule].filter(value => value && value !== "All"),
+    (!["", "Current"].includes(filters.account) ? filters.account : "")].filter(Boolean).length;
+  const invalidDates = Boolean(filters.dateFrom && filters.dateTo && filters.dateFrom > filters.dateTo);
+  const count = document.getElementById("journalFilterCount");
+  if (count) {
+    count.textContent = invalidDates ? "Check date range" : `${analysis.trades.length} of ${total} records · close date`;
+    count.classList.toggle("invalid", invalidDates);
+  }
+  const badge = document.getElementById("journalActiveFilterBadge");
+  if (badge) { badge.hidden = activeCount === 0; badge.textContent = String(activeCount); }
+}
+
+function renderSymbolAnalysis() {
+  const panel = document.getElementById("symbolAnalysisPanel");
+  const ranking = document.getElementById("symbolRankingList");
+  const summary = document.getElementById("symbolOverviewMetrics");
+  const api = window.TRDSymbolAnalysis;
+  if (!panel || !ranking || !summary || !api) return;
+  const filters = journalFilters();
+  const sort = document.getElementById("symbolSortSelect")?.value || "expectancy";
+  const scope = journalTradeScope(filters);
+  const analysis = api.analyze(scope, filters, sort);
+  const scopeNote = document.getElementById("symbolAnalysisScope");
+  if (scopeNote) scopeNote.textContent = `Closed trades use their close date. Outcome, status, and search filters do not alter performance statistics.${filters.account === "All" ? " Net P&L combines accounts; use Average R for a normalized comparison." : ""}`;
+  const rankable = analysis.rows.filter(row => row.rankable);
+  const selected = selectedJournalSymbol === null ? null : analysis.rows.find(row => row.key === selectedJournalSymbol);
+  if (selectedJournalSymbol !== null && !selected) selectedJournalSymbol = null;
+  const hasSelection = selectedJournalSymbol !== null && Boolean(selected);
+  const displayedRows = hasSelection ? [selected] : analysis.rows;
+  ranking.classList.remove("hidden");
+  if (journalView === "symbols") updateSymbolFilterSummary(analysis, scope.length, filters);
+
+  summary.innerHTML = [
+    insightCard("Symbols", String(rankable.length), `${analysis.overall.count} closed trades`),
+    insightCard("Journal win rate", symbolWinRateText(analysis.overall), `${analysis.overall.wins}W · ${analysis.overall.losses}L · ${analysis.overall.breakevens}BE`),
+    insightCard("Average R", analysis.overall.validRCount ? formatR(analysis.overall.averageR) : "—", `${analysis.overall.invalidRiskCount} missing Risk excluded`),
+    insightCard("Open exposure", String(analysis.openCount), "Not included in performance")
+  ].join("");
+
+  ranking.innerHTML = displayedRows.length ? displayedRows.map((row) => {
+    const relative = row.expectancy - analysis.overall.expectancy;
+    const relativeClass = relative > 0.005 ? "outperform" : relative < -0.005 ? "underperform" : "in-line";
+    const active = selectedJournalSymbol !== null && row.key === selectedJournalSymbol;
+    const rankPosition = row.rankable ? rankable.indexOf(row) + 1 : null;
+    return `<button class="symbol-rank-card ${active ? "active" : ""} ${row.rankable ? "" : "unranked"} ${relativeClass}" data-symbol-select="${safe(row.key)}" type="button">
+      <span class="symbol-rank-position">${rankPosition ? `#${rankPosition}` : "—"}</span>
+      <span class="symbol-rank-main"><strong>${safe(row.label)}</strong>${sampleConfidenceHtml(row.count)}</span>
+      <span class="symbol-rank-stat"><small>Win rate</small><strong>${symbolWinRateText(row)}</strong><em>${row.wins}W · ${row.losses}L · ${row.breakevens}BE</em></span>
+      <span class="symbol-rank-stat"><small>Average R</small><strong class="${relativeClass === "outperform" ? "positive" : relativeClass === "underperform" ? "negative" : ""}">${row.validRCount ? formatR(row.expectancy) : "—"}</strong><em>${relative >= 0 ? "+" : ""}${formatR(relative).replace("+", "")} vs journal${row.invalidRiskCount ? ` · ${row.invalidRiskCount} excluded` : ""}</em></span>
+      <span class="symbol-rank-stat"><small>Net P&L</small><strong class="${row.totalPnL >= 0 ? "positive" : "negative"}">${formatDollar(row.totalPnL)}</strong><em>${row.count} closed · ${row.openCount} open</em></span>
+    </button>`;
+  }).join("") : emptyState("No trades match the analysis filters yet.");
+  renderSymbolDetail(hasSelection ? selected : null, analysis.overall);
+}
+
+function applyJournalView() {
+  document.querySelectorAll("[data-journal-view]").forEach(button => button.classList.toggle("active", button.dataset.journalView === journalView));
+  document.getElementById("journalTimelineContainer")?.classList.toggle("hidden", journalView !== "timeline");
+  document.getElementById("timelineZeroState")?.classList.toggle("hidden", journalView !== "timeline");
+  document.getElementById("journalTablePanel")?.classList.toggle("hidden", journalView !== "table");
+  document.getElementById("symbolAnalysisPanel")?.classList.toggle("hidden", journalView !== "symbols");
+  document.getElementById("journalEntryLayout")?.classList.toggle("hidden", journalView === "symbols");
+  ["journalSearchInput", "journalStatusFilter", "journalOutcomeFilter"].forEach(id => {
+    const input = document.getElementById(id);
+    if (!input) return;
+    input.disabled = journalView === "symbols";
+    input.title = journalView === "symbols" ? "This control is ignored in symbol performance analysis." : "";
+  });
+  const copy = journalView === "symbols" ? ["Performance", "Performance by symbol"] : journalView === "table" ? ["Records", "Journal table"] : ["Timeline", "SOP record trail"];
+  setText("journalViewEyebrow", copy[0]);
+  setText("journalViewTitle", copy[1]);
+  if (journalView === "symbols") renderSymbolAnalysis();
+  else {
+    const filters = journalFilters();
+    const scope = journalTradeScope(filters);
+    const filtered = window.TRDJournalFilter?.filterTrades(scope, filters) || scope;
+    updateJournalFilterSummary(filtered, scope.length, filters);
+  }
 }
 
 function renderSopJourney() {
@@ -1961,9 +2173,7 @@ function renderSopJourney() {
   document.getElementById("sopGrowthPanel").innerHTML = maturityPanel(active, progress, level);
   renderAccountManager();
   renderSopTimeline();
-  document.querySelectorAll("[data-journal-view]").forEach((button) => button.classList.toggle("active", button.dataset.journalView === journalView));
-  document.getElementById("sopTimeline").classList.toggle("hidden", journalView !== "timeline");
-  document.getElementById("journalTablePanel").classList.toggle("hidden", journalView !== "table");
+  applyJournalView();
 }
 
 function maturityPanel(sop, progress, level) {
@@ -2185,8 +2395,10 @@ function tradeCard(trade) {
 function resultTag(trade) {
   if (trade.status === "open") return '<span class="tag info">Open</span>';
   const r = rValue(trade);
-  const pnlStr = trade.pnl ? ` (${formatDollar(trade.pnl)})` : "";
-  return `<span class="tag ${r >= 0 ? "good" : "bad"}">${formatR(r)}${pnlStr}</span>`;
+  const pnl = Number(trade.pnl);
+  const pnlStr = pnl ? ` (${formatDollar(pnl)})` : "";
+  const resultClass = pnl > 0 ? "good" : pnl < 0 ? "bad" : "neutral";
+  return `<span class="tag ${resultClass}">${formatR(r)}${pnlStr}</span>`;
 }
 
 function mediaBadges(trade) {
@@ -2207,7 +2419,8 @@ function renderAnalytics() {
   renderGroupedBars("gradeBars", groupBy(closedTrades(), "grade"));
   
   const weekdays = closedTrades().reduce((acc, trade) => {
-    const d = new Date(`${trade.date}T12:00:00`);
+    const closeDate = trade.closeTime || trade.closedAt || trade.date;
+    const d = new Date(`${String(closeDate).slice(0, 10)}T12:00:00`);
     const day = d.toLocaleDateString("en", { weekday: "short" });
     if (!acc[day]) acc[day] = [];
     acc[day].push(trade);
@@ -2255,15 +2468,16 @@ function renderSessionHeatmap() {
   days.forEach((day) => {
     matrix[day] = {};
     sessions.forEach((s) => {
-      matrix[day][s.key] = { rSum: 0, count: 0, wins: 0 };
+      matrix[day][s.key] = { rSum: 0, count: 0, wins: 0, losses: 0, breakevens: 0 };
     });
   });
 
   const trades = (typeof getActiveAccountTrades === "function" ? getActiveAccountTrades() : (state.trades || [])).filter((t) => t.status === "closed");
 
   trades.forEach((trade) => {
-    if (!trade.date) return;
-    const dateObj = new Date(`${String(trade.date).slice(0, 10)}T12:00:00`);
+    const closeDate = trade.closeTime || trade.closedAt || trade.date;
+    if (!closeDate) return;
+    const dateObj = new Date(`${String(closeDate).slice(0, 10)}T12:00:00`);
     if (isNaN(dateObj.getTime())) return;
     const dayIdx = dateObj.getDay();
     const dayMap = { 1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri" };
@@ -2277,7 +2491,10 @@ function renderSessionHeatmap() {
     if (matrix[dayName] && matrix[dayName][sessionKey]) {
       matrix[dayName][sessionKey].rSum += r;
       matrix[dayName][sessionKey].count += 1;
-      if (r > 0) matrix[dayName][sessionKey].wins += 1;
+      const pnl = Number(trade.pnl);
+      if (pnl > 0) matrix[dayName][sessionKey].wins += 1;
+      else if (pnl < 0) matrix[dayName][sessionKey].losses += 1;
+      else matrix[dayName][sessionKey].breakevens += 1;
     }
   });
 
@@ -2297,7 +2514,8 @@ function renderSessionHeatmap() {
       const cellData = matrix[day][s.key];
       const count = cellData.count;
       const rSum = cellData.rSum;
-      const winRate = count > 0 ? Math.round((cellData.wins / count) * 100) : 0;
+      const decisiveCount = cellData.wins + cellData.losses;
+      const winRate = decisiveCount ? `${Math.round((cellData.wins / decisiveCount) * 100)}%` : "—";
       
       let levelClass = "level-neutral";
       if (count > 0) {
@@ -2308,11 +2526,11 @@ function renderSessionHeatmap() {
       }
 
       const cellText = count > 0
-        ? `<strong>${formatR(rSum)}</strong><div style="font-size:10px; opacity:0.85; margin-top:2px;">${winRate}% WR (${count}T)</div>`
+        ? `<strong>${formatR(rSum)}</strong><div style="font-size:10px; opacity:0.85; margin-top:2px;">${winRate} WR (${count}T)</div>`
         : `<span style="opacity:0.4;">-</span>`;
 
       const titleTooltip = count > 0
-        ? `${day} ${s.label}: ${formatR(rSum)} Total, ${cellData.wins} Wins / ${count - cellData.wins} Losses (${winRate}% Win Rate)`
+        ? `${day} ${s.label}: ${formatR(rSum)} Total, ${cellData.wins} Wins / ${cellData.losses} Losses / ${cellData.breakevens} Breakeven (${winRate} Win Rate)`
         : `${day} ${s.label}: No trade records`;
 
       html += `<td class="heatmap-cell ${levelClass}" title="${safe(titleTooltip)}">${cellText}</td>`;
@@ -2405,9 +2623,9 @@ window.renderMaeMfeScatterChart = renderMaeMfeScatterChart;
 
 function getSampleContextHtml(n) {
   const base = "font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px;";
-  if (n < 20) return `<span style="${base} background: var(--bg-card); color: #f59e0b; border: 1px solid #f59e0b33;" title="Low confidence (${n}/20) - Do not form strong conclusions yet.">⚠️ Low Sample (${n})</span>`;
-  if (n < 50) return `<span style="${base} background: var(--bg-card); color: #8b5cf6; border: 1px solid #8b5cf633;" title="Medium confidence (${n}/50) - Trends are emerging.">🟡 Med Sample (${n})</span>`;
-  return `<span style="${base} background: var(--bg-card); color: #10b981; border: 1px solid #10b98133;" title="High confidence (${n}+) - Statistical significance reached.">🟢 High Sample (${n})</span>`;
+  if (n < 30) return `<span style="${base} background: var(--bg-card); color: #f59e0b; border: 1px solid #f59e0b33;" title="Sample too small (${n}/30).">⚠️ Low Sample (${n})</span>`;
+  if (n < 50) return `<span style="${base} background: var(--bg-card); color: #8b5cf6; border: 1px solid #8b5cf633;" title="Preliminary read (${n}/50).">🟡 Early Read (${n})</span>`;
+  return `<span style="${base} background: var(--bg-card); color: #10b981; border: 1px solid #10b98133;" title="Useful sample (${n}+).">🟢 Useful Sample (${n})</span>`;
 }
 
 function renderGroupedBars(id, grouped) {
@@ -2422,7 +2640,8 @@ function renderGroupedBars(id, grouped) {
   const el = document.getElementById(id);
   if (el) el.innerHTML = rows.map((row) => {
     const volumePct = Math.max((row.count / totalCount) * 100, 10);
-    const winRatePct = Math.round(row.winRate * 100);
+    const winRatePct = row.decisiveCount ? Math.round(row.winRate * 100) : 0;
+    const winRateText = metricWinRateText(row);
     const isPositive = row.expectancy >= 0;
     
     return `
@@ -2434,12 +2653,12 @@ function renderGroupedBars(id, grouped) {
           </div>
           <div class="card-metrics">
             <span class="card-r-val ${isPositive ? "positive" : "negative"}">${formatR(row.expectancy)} Expectancy</span>
-            <span class="card-winrate">${winRatePct}% win</span>
+            <span class="card-winrate">${winRateText} win</span>
           </div>
         </div>
         <div class="composite-bar-container">
           <div class="bar-track-volume" style="width: ${volumePct}%" title="${row.count} trades (${Math.round(volumePct)}%)">
-            <div class="bar-fill-winrate ${isPositive ? "positive" : "negative"}" style="width: ${winRatePct}%" title="${winRatePct}% win rate"></div>
+            <div class="bar-fill-winrate ${isPositive ? "positive" : "negative"}" style="width: ${winRatePct}%" title="${winRateText} win rate"></div>
           </div>
         </div>
       </div>
@@ -2583,7 +2802,7 @@ function renderPlaybook() {
           <div class="sop-card-stat-row">
             <div class="sop-card-stat">
               <span>Win Rate</span>
-              <strong>${Math.round(progress.winRate * 100)}%</strong>
+              <strong>${progress.decisiveCount ? `${Math.round(progress.winRate * 100)}%` : "—"}</strong>
             </div>
             <div class="sop-card-stat">
               <span>Expectancy</span>
@@ -4562,6 +4781,7 @@ document.getElementById("journalSearchInput")?.addEventListener("input", () => {
 ["setupFilter", "ruleFilterSelect", "journalStatusFilter", "journalDateFrom", "journalDateTo", "journalSessionFilter", "journalOutcomeFilter", "journalGradeFilter", "journalEmotionFilter", "journalAccountFilter"]
   .forEach(id => document.getElementById(id)?.addEventListener("change", renderFilteredJournalViews));
 document.getElementById("journalSortSelect")?.addEventListener("change", renderJournal);
+document.getElementById("symbolSortSelect")?.addEventListener("change", renderSymbolAnalysis);
 document.getElementById("journalClearFiltersBtn")?.addEventListener("click", () => {
   ["journalSearchInput", "journalDateFrom", "journalDateTo"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
   ["setupFilter", "ruleFilterSelect", "journalStatusFilter", "journalSessionFilter", "journalOutcomeFilter", "journalGradeFilter", "journalEmotionFilter"]
@@ -4859,6 +5079,9 @@ document.body.addEventListener("click", async (event) => {
   const editActiveAccount = safeClosest(event.target, "[data-edit-active-account]");
   const openCapture = safeClosest(event.target, "[data-open-capture]");
   const journalViewTarget = safeClosest(event.target, "[data-journal-view]")?.dataset.journalView;
+  const symbolSelect = safeClosest(event.target, "[data-symbol-select]")?.dataset.symbolSelect;
+  const symbolClear = safeClosest(event.target, "[data-symbol-clear]");
+  const symbolMore = safeClosest(event.target, "[data-symbol-more]");
   const day = safeClosest(event.target, "[data-day]")?.dataset.day;
   const imageEl = safeClosest(event.target, "[data-image]");
   const image = imageEl?.dataset.image;
@@ -4905,9 +5128,24 @@ document.body.addEventListener("click", async (event) => {
   }
   if (journalViewTarget) {
     journalView = journalViewTarget;
-    document.querySelectorAll("[data-journal-view]").forEach((button) => button.classList.toggle("active", button.dataset.journalView === journalView));
-    document.getElementById("sopTimeline").classList.toggle("hidden", journalView !== "timeline");
-    document.getElementById("journalTablePanel").classList.toggle("hidden", journalView !== "table");
+    applyJournalView();
+  }
+  if (symbolSelect !== undefined) {
+    selectedJournalSymbol = selectedJournalSymbol === symbolSelect ? null : symbolSelect;
+    symbolRecordLimit = 20;
+    renderSymbolAnalysis();
+    if (selectedJournalSymbol !== null) document.getElementById("symbolDetailPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  if (symbolClear) {
+    selectedJournalSymbol = null;
+    symbolRecordLimit = 20;
+    renderSymbolAnalysis();
+    document.getElementById("symbolAnalysisPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  if (symbolMore) {
+    symbolRecordLimit += 20;
+    renderSymbolAnalysis();
+    document.getElementById("symbolDetailPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
   if (day) {
     setWorkflowDate(day);
@@ -5135,7 +5373,7 @@ function openInsightDetail(key) {
     const wins = closed.filter(t => rValue(t) > 0);
     seriesData = [{ value: 0, label: "Start" }, ...wins.map((t) => {
       totalR += rValue(t);
-      return { value: totalR, label: t.date, detail: `${t.symbol}: ${formatR(rValue(t))} (${money(t.pnl)})` };
+      return { value: totalR, label: resultDate(t), detail: `${t.symbol}: ${formatR(rValue(t))} (${money(t.pnl)})` };
     })];
     const m = metrics();
     const avgWin = wins.length ? m.grossWinR / wins.length : 0;
@@ -5154,7 +5392,7 @@ function openInsightDetail(key) {
     const losses = closed.filter(t => rValue(t) < 0);
     seriesData = [{ value: 0, label: "Start" }, ...losses.map((t) => {
       totalLossR += rValue(t);
-      return { value: totalLossR, label: t.date, detail: `${t.symbol}: ${formatLossR(rValue(t))} (${money(t.pnl)})` };
+      return { value: totalLossR, label: resultDate(t), detail: `${t.symbol}: ${formatLossR(rValue(t))} (${money(t.pnl)})` };
     })];
     const m = metrics();
     const avgLoss = losses.length ? m.grossLossR / losses.length : 0;
@@ -5171,11 +5409,11 @@ function openInsightDetail(key) {
     let total = 0;
     seriesData = [{ value: 0, label: "Start" }, ...closed.map((t) => {
       total += rValue(t);
-      return { value: total, label: t.date, detail: `${t.symbol} (${formatR(rValue(t))})` };
+      return { value: total, label: resultDate(t), detail: `${t.symbol} (${formatR(rValue(t))})` };
     })];
     const m = metrics();
     detailCards = [
-      insightCard("Win Rate", `${Math.round(m.winRate * 100)}%`, `${m.wins}W / ${m.losses}L`),
+      insightCard("Win Rate", metricWinRateText(m), `${m.wins}W / ${m.losses}L / ${m.breakevens}BE`),
       insightCard("Expectancy", formatR(m.expectancy), "Per trade average"),
       insightCard("Profit Factor", Number.isFinite(m.profitFactor) ? m.profitFactor.toFixed(2) : "∞", "Gross profit / Gross loss"),
       insightCard("Max DD", formatR(m.maxDrawdown), "Worst peak-to-trough"),
@@ -5184,7 +5422,7 @@ function openInsightDetail(key) {
     kicker.textContent = "Daily Performance";
     title.textContent = "Daily R over time";
     const dayMap = Object.create(null);
-    closed.forEach((t) => { dayMap[t.date] = (dayMap[t.date] || 0) + rValue(t); });
+    closed.forEach((t) => { const day = resultDate(t); dayMap[day] = (dayMap[day] || 0) + rValue(t); });
     const sortedDays = Object.keys(dayMap).sort();
     seriesData = sortedDays.map((d) => ({ value: dayMap[d], label: d, detail: `Day total: ${formatR(dayMap[d])}` }));
     const posDays = sortedDays.filter((d) => dayMap[d] > 0).length;
@@ -5201,7 +5439,7 @@ function openInsightDetail(key) {
     const grouped = Object.entries(groupBy(closed, "setup"));
     const allSetupCards = grouped.map(([name, list]) => {
       const m = metrics(list);
-      return insightCard(name, formatR(m.totalR), `${m.count} trades · WR ${Math.round(m.winRate * 100)}%`);
+      return insightCard(name, formatR(m.totalR), `${m.count} trades · WR ${metricWinRateText(m)}`);
     });
     detailCards = allSetupCards;
     let total = 0;
@@ -5212,13 +5450,13 @@ function openInsightDetail(key) {
   } else if (key === "largestWin" || key === "largestLoss") {
     kicker.textContent = "Trade Distribution";
     title.textContent = "Individual trade R-values";
-    seriesData = closed.map((t) => ({ value: rValue(t), label: t.date, detail: `${t.symbol} ${t.setup}` }));
+    seriesData = closed.map((t) => ({ value: rValue(t), label: resultDate(t), detail: `${t.symbol} ${t.setup}` }));
     const sorted = [...closed].sort((a, b) => rValue(b) - rValue(a));
     const top3 = sorted.slice(0, 3);
     const bottom3 = sorted.slice(-3).reverse();
     detailCards = [
-      ...top3.map((t, i) => insightCard(`#${i + 1} Best`, formatR(rValue(t)), `${t.symbol} · ${t.date}`)),
-      ...bottom3.map((t, i) => insightCard(`#${i + 1} Worst`, formatR(rValue(t)), `${t.symbol} · ${t.date}`)),
+      ...top3.map((t, i) => insightCard(`#${i + 1} Best`, formatR(rValue(t)), `${t.symbol} · ${resultDate(t)}`)),
+      ...bottom3.map((t, i) => insightCard(`#${i + 1} Worst`, formatR(rValue(t)), `${t.symbol} · ${resultDate(t)}`)),
     ];
   } else if (key === "processLeak") {
     kicker.textContent = "Process Quality";
@@ -5229,7 +5467,7 @@ function openInsightDetail(key) {
       if (st === "followed") followed++;
       const rate = Math.round(followed / (i + 1) * 100);
       const labelText = st === "incomplete" ? "SOP Incomplete" : (st === "violated" ? "Broken" : "Followed");
-      return { value: rate, label: t.date, detail: `${t.symbol} · ${labelText}` };
+      return { value: rate, label: resultDate(t), detail: `${t.symbol} · ${labelText}` };
     });
     const ruleFollowed = closed.filter((t) => getTradeRuleStatus(t) === "followed").length;
     const gradeA = closed.filter((t) => t.grade === "A").length;

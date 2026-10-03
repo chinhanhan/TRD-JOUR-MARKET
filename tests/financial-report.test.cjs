@@ -29,11 +29,20 @@ test('month report selects closed trades by close date/account and escapes HTML'
  for(const marker of ['<b>test</b>','OPEN','OLD','OTHER'])assert.ok(!html.includes(marker));
  assert.match(html,/Cumulative Net R[\s\S]*?\+1.00R/);assert.match(html,/Disciplined Rule Compliance[\s\S]*?>0%/);
 });
+test('month report shows no win rate when every result is breakeven',()=>{
+ context.window.state.trades=[{id:'be',status:'closed',closedAt:'2026-09-02',accountId:'a',symbol:'ES',pnl:0,risk:100}];
+ context.engine.generateReport({month:'2026-09'});
+ assert.match(html,/Win Rate[\s\S]*?metric-val">—</);
+});
 test('empty active state never falls back to another users legacy data',()=>{
  context.window.state.trades=[];assert.equal(context.engine.getTrades().length,0);
 });
 vm.runInContext(app.slice(app.indexOf('function closedTrades('),app.indexOf('function openTrades(')),context);
 vm.runInContext(app.slice(app.indexOf('function metrics('),app.indexOf('function byDate(')),context);
+test('result analytics prefer close date with legacy fallback',()=>{
+ assert.equal(context.resultDate({date:'2026-09-01',closedAt:'2026-09-03'}),'2026-09-03');
+ assert.equal(context.resultDate({date:'2026-09-01'}),'2026-09-01');
+});
 test('drawdown follows closing chronology even when cloud records arrive in ID order',()=>{
  const trades=[
  {id:'a',status:'closed',closeTime:'2026-09-03T12:00',pnl:-200,risk:100},
@@ -41,6 +50,17 @@ test('drawdown follows closing chronology even when cloud records arrive in ID o
  {id:'c',status:'closed',closeTime:'2026-09-03T11:00',pnl:300,risk:100}];
  const result=context.metrics(trades);assert.equal(result.maxDrawdown,-2);assert.equal(result.totalR,-1);
  assert.equal(trades[0].id,'a');
+});
+test('shared metrics exclude breakeven from win rate and invalid risk from R averages',()=>{
+ const result=context.metrics([
+  {id:'w',status:'closed',pnl:100,risk:100},
+  {id:'l',status:'closed',pnl:-50,risk:50},
+  {id:'be',status:'closed',pnl:0,risk:100},
+  {id:'legacy',status:'closed',pnl:-500,risk:0}
+ ]);
+ assert.equal(result.wins,1);assert.equal(result.losses,2);assert.equal(result.breakevens,1);
+ assert.equal(result.winRate,1/3);assert.equal(result.invalidRiskCount,1);
+ assert.equal(result.expectancy,0);assert.equal(result.validRCount,3);
 });
 context.structuredClone=structuredClone;context.localOwnerUid='a';context.defaultSopDetails={checklist:[],weaknesses:[]};context.parseSopChecklistRules=value=>value||[];
 vm.runInContext(app.slice(app.indexOf('function makeSopId('),app.indexOf('async function saveState(')),context);

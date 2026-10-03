@@ -18,6 +18,7 @@ const publicFiles = [
   'stateSyncCore.js',
   'backupCore.js',
   'journalFilterCore.js',
+  'symbolAnalysisCore.js',
   'weeklyReviewCore.js',
   'tradeValidationCore.js',
   'tradeDraftCore.js',

@@ -47,6 +47,17 @@ test('interactive launch controls have one click owner', () => {
   for (const tag of launchers) assert.equal(/\bonclick=/.test(tag), false, `duplicate inline click handler: ${tag}`);
 });
 
+test('symbol analysis view keeps its required controls and delegated actions', () => {
+  const html = read('index.html');
+  const app = read('app.js');
+  for (const marker of ['data-journal-view="symbols"', 'id="symbolAnalysisPanel"', 'id="symbolRankingList"', 'id="symbolDetailPanel"', 'id="symbolSortSelect"']) {
+    assert.match(html, new RegExp(marker));
+  }
+  for (const hook of ['[data-symbol-select]', '[data-symbol-clear]', '[data-symbol-more]']) {
+    assert.ok(app.includes(hook), `missing delegated symbol action: ${hook}`);
+  }
+});
+
 test('critical persistence and R rules remain intact', () => {
   const app = read('app.js');
   const first = app.match(/async function saveState\(options = \{\}\) \{\n([^\n]+)/)?.[1].trim();

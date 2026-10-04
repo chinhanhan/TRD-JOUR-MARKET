@@ -328,6 +328,30 @@ body {
   .journal-filter-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .sop-timeline-panel > .panel-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  #journalViewToggle {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
+  }
+
+  #journalViewToggle .segment {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-inline: 8px;
+    white-space: nowrap;
+  }
+
+  .sop-timeline-panel > .panel-head > .panel-collapse-btn {
+    grid-column: 2;
+    grid-row: 1;
+  }
 }
 
 @media (max-width: 420px) {
